@@ -10,6 +10,7 @@ import (
 
 	"ehr-backend/internal/auth"
 	"ehr-backend/internal/database"
+	"ehr-backend/internal/patients"
 )
 
 func main() {
@@ -34,6 +35,8 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	authHandler := auth.NewHandler(db, jwtSecret)
+
+	patientHandler := patients.NewHandler(db)
 
 	mux := http.NewServeMux()
 
@@ -63,6 +66,10 @@ func main() {
 	mux.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 	mux.HandleFunc("GET /api/auth/me", authHandler.RequireAuth(authHandler.Me))
+	mux.HandleFunc("GET /api/patients", authHandler.RequireAuth(patientHandler.List))
+	mux.HandleFunc("POST /api/patients", authHandler.RequireAuth(patientHandler.Create))
+	mux.HandleFunc("GET /api/patients/{id}", authHandler.RequireAuth(patientHandler.Get))
+	mux.HandleFunc("PUT /api/patients/{id}", authHandler.RequireAuth(patientHandler.Update))
 
 	log.Println("EHR API running on http://localhost:8080")
 
