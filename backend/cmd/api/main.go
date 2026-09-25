@@ -11,6 +11,8 @@ import (
 	"ehr-backend/internal/auth"
 	"ehr-backend/internal/database"
 	"ehr-backend/internal/patients"
+	"ehr-backend/internal/roles"
+	"ehr-backend/internal/users"
 )
 
 func main() {
@@ -35,8 +37,9 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	authHandler := auth.NewHandler(db, jwtSecret)
-
 	patientHandler := patients.NewHandler(db)
+	userHandler := users.NewHandler(db)
+	roleHandler := roles.NewHandler(db)
 
 	mux := http.NewServeMux()
 
@@ -63,13 +66,65 @@ func main() {
 		})
 	})
 
+	// Auth
 	mux.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
-	mux.HandleFunc("GET /api/auth/me", authHandler.RequireAuth(authHandler.Me))
-	mux.HandleFunc("GET /api/patients", authHandler.RequireAuth(patientHandler.List))
-	mux.HandleFunc("POST /api/patients", authHandler.RequireAuth(patientHandler.Create))
-	mux.HandleFunc("GET /api/patients/{id}", authHandler.RequireAuth(patientHandler.Get))
-	mux.HandleFunc("PUT /api/patients/{id}", authHandler.RequireAuth(patientHandler.Update))
+	mux.HandleFunc(
+		"GET /api/auth/me",
+		authHandler.RequireAuth(authHandler.Me),
+	)
+
+	// Patients
+	mux.HandleFunc(
+		"GET /api/patients",
+		authHandler.RequireAuth(patientHandler.List),
+	)
+	mux.HandleFunc(
+		"POST /api/patients",
+		authHandler.RequireAuth(patientHandler.Create),
+	)
+	mux.HandleFunc(
+		"GET /api/patients/{id}",
+		authHandler.RequireAuth(patientHandler.Get),
+	)
+	mux.HandleFunc(
+		"PUT /api/patients/{id}",
+		authHandler.RequireAuth(patientHandler.Update),
+	)
+
+	// Users / Employees
+	mux.HandleFunc(
+		"GET /api/users",
+		authHandler.RequireAuth(userHandler.List),
+	)
+	mux.HandleFunc(
+		"POST /api/users",
+		authHandler.RequireAuth(userHandler.Create),
+	)
+	mux.HandleFunc(
+		"GET /api/users/{id}",
+		authHandler.RequireAuth(userHandler.Get),
+	)
+	mux.HandleFunc(
+		"PUT /api/users/{id}",
+		authHandler.RequireAuth(userHandler.Update),
+	)
+
+	// Roles
+	mux.HandleFunc(
+		"GET /api/roles",
+		authHandler.RequireAuth(roleHandler.List),
+	)
+
+	mux.HandleFunc(
+		"GET /api/users/{id}/roles",
+		authHandler.RequireAuth(roleHandler.GetUserRoles),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/users/{id}/roles",
+		authHandler.RequireAuth(roleHandler.UpdateUserRoles),
+	)
 
 	log.Println("EHR API running on http://localhost:8080")
 

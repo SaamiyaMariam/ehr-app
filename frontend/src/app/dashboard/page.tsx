@@ -101,6 +101,18 @@ export default function DashboardPage() {
               Add, view, and update patient records.
             </p>
           </Link>
+          <Link
+            href="/users"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Users
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Add and manage users.
+            </p>
+          </Link>
         </div>
       </div>
     </main>
