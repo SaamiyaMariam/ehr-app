@@ -30,6 +30,56 @@ func NewHandler(db *pgxpool.Pool, jwtSecret string) *Handler {
 	}
 }
 
+func (h *Handler) RequireAnyRole(
+	next http.HandlerFunc,
+	roleKeys ...string,
+) http.HandlerFunc {
+	return h.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(userIDKey).(string)
+		if !ok || userID == "" {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var allowed bool
+
+		err := h.db.QueryRow(
+			r.Context(),
+			`
+			SELECT EXISTS (
+				SELECT 1
+				FROM user_roles ur
+				JOIN roles ro ON ro.id = ur.role_id
+				WHERE ur.user_id = $1
+				  AND ro.key = ANY($2)
+			)
+			`,
+			userID,
+			roleKeys,
+		).Scan(&allowed)
+
+		if err != nil {
+			writeError(
+				w,
+				http.StatusInternalServerError,
+				"could not verify user role",
+			)
+			return
+		}
+
+		if !allowed {
+			writeError(
+				w,
+				http.StatusForbidden,
+				"you do not have permission to perform this action",
+			)
+			return
+		}
+
+		next(w, r)
+	})
+}
+
 type SignupRequest struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`

@@ -19,6 +19,63 @@ func NewHandler(db *pgxpool.Pool) *Handler {
 	return &Handler{db: db}
 }
 
+func (h *Handler) ListClinicians(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(
+		r.Context(),
+		`
+		SELECT
+			u.id,
+			u.first_name,
+			u.last_name,
+			COALESCE(u.preferred_name, ''),
+			u.username,
+			u.email
+		FROM users u
+		JOIN user_roles ur ON ur.user_id = u.id
+		JOIN roles r ON r.id = ur.role_id
+		WHERE r.key = 'clinician'
+		  AND u.is_active = TRUE
+		ORDER BY u.last_name, u.first_name
+		`,
+	)
+
+	if err != nil {
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"could not load clinicians",
+		)
+		return
+	}
+	defer rows.Close()
+
+	result := make([]UserListItem, 0)
+
+	for rows.Next() {
+		var user UserListItem
+
+		if err := rows.Scan(
+			&user.ID,
+			&user.FirstName,
+			&user.LastName,
+			&user.PreferredName,
+			&user.Username,
+			&user.Email,
+		); err != nil {
+			writeError(
+				w,
+				http.StatusInternalServerError,
+				"could not load clinicians",
+			)
+			return
+		}
+
+		result = append(result, user)
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
 type User struct {
 	ID string `json:"id"`
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Patient } from "@/types/patient";
+import { apiFetch } from "@/lib/api";
 
 type Props = {
   initialPatient: Patient;
@@ -23,6 +24,29 @@ export default function PatientForm({
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [clinicians, setClinicians] = useState<
+    {
+      id: string;
+      first_name: string;
+      last_name: string;
+      preferred_name: string;
+    }[]
+  >([]);
+
+  useEffect(() => {
+    async function loadClinicians() {
+      const response = await apiFetch("/api/clinicians");
+
+      if (!response.ok) {
+        return;
+      }
+
+      setClinicians(await response.json());
+    }
+
+    loadClinicians();
+  }, []);
 
   function update<K extends keyof Patient>(
     field: K,
@@ -372,7 +396,41 @@ export default function PatientForm({
           </div>
         </div>
       </section>
+      <section className="rounded-xl border bg-white p-6">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Assigned Clinician
+        </h2>
 
+        <div className="mt-5 max-w-md">
+          <label className={labelClass}>
+            Clinician
+          </label>
+
+          <select
+            className={inputClass}
+            value={patient.assigned_clinician_id}
+            onChange={(e) =>
+              update("assigned_clinician_id", e.target.value)
+            }
+          >
+            <option value="">
+              No clinician assigned
+            </option>
+
+            {clinicians.map((clinician) => (
+              <option
+                key={clinician.id}
+                value={clinician.id}
+              >
+                {clinician.first_name} {clinician.last_name}
+                {clinician.preferred_name
+                  ? ` (${clinician.preferred_name})`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
       <section className="rounded-xl border bg-white p-6">
         <h2 className="text-lg font-semibold text-slate-900">
           Documentation
