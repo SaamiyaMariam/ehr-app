@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"ehr-backend/internal/auth"
 	"ehr-backend/internal/database"
 )
 
@@ -15,6 +16,11 @@ func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is required")
 	}
 
 	ctx := context.Background()
@@ -27,6 +33,8 @@ func main() {
 
 	log.Println("Connected to PostgreSQL")
 
+	authHandler := auth.NewHandler(db, jwtSecret)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +45,7 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
 
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"status":   "error",
 				"database": "unavailable",
 			})
@@ -46,11 +54,15 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status":   "ok",
 			"database": "connected",
 		})
 	})
+
+	mux.HandleFunc("POST /api/auth/signup", authHandler.Signup)
+	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
+	mux.HandleFunc("GET /api/auth/me", authHandler.RequireAuth(authHandler.Me))
 
 	log.Println("EHR API running on http://localhost:8080")
 
