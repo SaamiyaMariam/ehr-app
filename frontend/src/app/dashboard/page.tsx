@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { clearToken, getToken } from "@/lib/auth";
 
 type User = {
@@ -51,7 +53,7 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
+        Loading...
       </main>
     );
   }
@@ -78,10 +80,28 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
-        <p className="mt-2 text-slate-500">
+        <h2 className="text-2xl font-semibold text-slate-900">
+          Dashboard
+        </h2>
+
+        <p className="mt-1 text-slate-500">
           Welcome, {user.first_name}.
         </p>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <Link
+            href="/patients"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Patients
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Add, view, and update patient records.
+            </p>
+          </Link>
+        </div>
       </div>
     </main>
   );
