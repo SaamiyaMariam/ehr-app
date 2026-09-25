@@ -1,0 +1,13 @@
+.env
+.DS_Store
+
+# Go
+backend/bin/
+backend/tmp/
+
+# Editors
+.vscode/
+.idea/
+
+# Local environment files
+backend/.env
