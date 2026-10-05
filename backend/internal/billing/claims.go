@@ -97,6 +97,7 @@ type Claim struct {
 	Diagnoses []ClaimDiagnosis    `json:"diagnoses,omitempty"`
 	History   []ClaimHistoryEvent `json:"history,omitempty"`
 	Comments  []ClaimComment      `json:"comments,omitempty"`
+	Documents []ClaimDocument     `json:"documents,omitempty"`
 }
 
 var claimSequences = []string{"primary", "secondary", "tertiary", "quaternary"}
@@ -807,6 +808,11 @@ func (h *Handler) getClaim(ctx context.Context, q queryRower, id string) (Claim,
 		c.Diagnoses = append(c.Diagnoses, d)
 	}
 	rows.Close()
+
+	c.Documents, err = h.listClaimDocuments(ctx, q, id)
+	if err != nil {
+		return c, err
+	}
 
 	c.History, err = h.loadClaimHistory(ctx, q, `WHERE h.claim_id = $1`, id)
 	if err != nil {

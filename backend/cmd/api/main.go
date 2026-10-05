@@ -505,6 +505,37 @@ func main() {
 		authHandler.RequireAuth(billingHandler.ListClaimableCharges),
 	)
 
+	// CMS-1500 / superbills
+	mux.HandleFunc(
+		"POST /api/claims/{id}/cms1500",
+		authHandler.RequireAnyRole(billingHandler.GenerateCMS1500, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/claims/{id}/cms1500",
+		authHandler.RequireAuth(billingHandler.DownloadCMS1500),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/superbill-charges",
+		authHandler.RequireAuth(billingHandler.ListSuperbillCharges),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/superbills",
+		authHandler.RequireAuth(billingHandler.ListSuperbills),
+	)
+
+	mux.HandleFunc(
+		"POST /api/patients/{id}/superbills",
+		authHandler.RequireAnyRole(billingHandler.CreateSuperbill, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/superbills/{id}/pdf",
+		authHandler.RequireAuth(billingHandler.DownloadSuperbill),
+	)
+
 	log.Println("EHR API running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {

@@ -120,6 +120,16 @@ export type Claim = {
   diagnoses?: ClaimDiagnosis[];
   history?: ClaimHistoryEvent[];
   comments?: ClaimComment[];
+  documents?: ClaimDocument[];
+};
+
+export type ClaimDocument = {
+  id: string;
+  version: number;
+  frequency_code: string;
+  page_count: number;
+  generated_by: string;
+  created_at: string;
 };
 
 type Tone = "green" | "slate" | "amber" | "red" | "blue";
