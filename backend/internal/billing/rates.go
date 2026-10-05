@@ -1249,6 +1249,12 @@ type RatePreview struct {
 	PayerID        string  `json:"payer_id"`
 	Units          int     `json:"units"`
 	TotalCharge    string  `json:"total_charge"`
+
+	// SuggestedPatientResponsibility is the default patient share: the full
+	// total for direct billing, otherwise the policy copay capped at the total.
+	SuggestedPatientResponsibility string `json:"suggested_patient_responsibility"`
+
+	copay *int64
 }
 
 // chargePricing resolves billing method, payer and rate for a prospective
@@ -1284,12 +1290,13 @@ func (h *Handler) chargePricing(ctx context.Context, q queryRower, req RatePrevi
 
 		var policyPatient, payerID string
 		var policyActive bool
+		var copay *string
 
 		err := q.QueryRow(
 			ctx,
-			`SELECT patient_id, payer_id, is_active FROM insurance_policies WHERE id = $1`,
+			`SELECT patient_id, payer_id, is_active, copay::text FROM insurance_policies WHERE id = $1`,
 			req.InsurancePolicyID,
-		).Scan(&policyPatient, &payerID, &policyActive)
+		).Scan(&policyPatient, &payerID, &policyActive, &copay)
 
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && policyPatient != req.PatientID) {
 			return out, http.StatusBadRequest, "insurance policy not found for this patient"
@@ -1304,6 +1311,7 @@ func (h *Handler) chargePricing(ctx context.Context, q queryRower, req RatePrevi
 		}
 
 		out.PayerID = payerID
+		out.copay = scanNullableMoney(copay)
 
 		if method == "" {
 			method, err = defaultInsuranceBillingMethod(ctx, q, payerID)
@@ -1366,7 +1374,11 @@ func (h *Handler) chargePricing(ctx context.Context, q queryRower, req RatePrevi
 	out.RatePerUnit = formatMoney(rate.RatePerUnit)
 	out.Source = rate.Source
 	out.RateScheduleID = rate.RateScheduleID
-	out.TotalCharge = formatMoney(rate.RatePerUnit * int64(req.Units))
+	total := rate.RatePerUnit * int64(req.Units)
+	out.TotalCharge = formatMoney(total)
+
+	patientShare, _, _ := splitResponsibility(total, method, nil, out.copay)
+	out.SuggestedPatientResponsibility = formatMoney(patientShare)
 
 	return out, http.StatusOK, ""
 }

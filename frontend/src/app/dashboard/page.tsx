@@ -90,6 +90,18 @@ export default function DashboardPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           <Link
+            href="/billing"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Billing
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Billing transactions, claims, payments and reports.
+            </p>
+          </Link>
+          <Link
             href="/patients"
             className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
           >

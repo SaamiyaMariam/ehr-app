@@ -62,6 +62,7 @@ export type RatePreview = {
   payer_id: string;
   units: number;
   total_charge: string;
+  suggested_patient_responsibility: string;
 };
 
 export const rateSourceLabels: Record<string, string> = {

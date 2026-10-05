@@ -385,6 +385,64 @@ func main() {
 		authHandler.RequireAuth(billingHandler.RatePreview),
 	)
 
+	// Diagnoses (clinical + billing staff may maintain them)
+	diagnosisRoles := []string{
+		"practice_biller",
+		"clinician",
+		"clinical_administrator",
+	}
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/diagnoses",
+		authHandler.RequireAuth(billingHandler.ListDiagnoses),
+	)
+
+	mux.HandleFunc(
+		"POST /api/patients/{id}/diagnoses",
+		authHandler.RequireAnyRole(billingHandler.CreateDiagnosis, diagnosisRoles...),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/diagnoses/{id}",
+		authHandler.RequireAnyRole(billingHandler.UpdateDiagnosis, diagnosisRoles...),
+	)
+
+	mux.HandleFunc(
+		"PATCH /api/diagnoses/{id}/status",
+		authHandler.RequireAnyRole(billingHandler.SetDiagnosisActive, diagnosisRoles...),
+	)
+
+	// Charges / billing transactions
+	mux.HandleFunc(
+		"GET /api/patients/{id}/billing-transactions",
+		authHandler.RequireAuth(billingHandler.ListPatientTransactions),
+	)
+
+	mux.HandleFunc(
+		"POST /api/patients/{id}/charges",
+		authHandler.RequireAnyRole(billingHandler.CreateCharge, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/charges/{id}",
+		authHandler.RequireAuth(billingHandler.GetCharge),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/charges/{id}",
+		authHandler.RequireAnyRole(billingHandler.UpdateCharge, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"POST /api/charges/{id}/void",
+		authHandler.RequireAnyRole(billingHandler.VoidCharge, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/billing/transactions",
+		authHandler.RequireAuth(billingHandler.SearchTransactions),
+	)
+
 	log.Println("EHR API running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {
