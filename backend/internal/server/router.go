@@ -258,6 +258,13 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	rt.roles("POST /api/insurance-payments/{id}/void", billingHandler.VoidInsurancePayment, billerRoles...)
 	rt.authed("GET /api/billing/outstanding-insurance", billingHandler.SearchOutstandingInsurance)
 
+	// Billing dashboard / reports / export
+	rt.authed("GET /api/billing/dashboard", billingHandler.GetBillingDashboard)
+	rt.authed("GET /api/billing/transactions/export", billingHandler.ExportTransactionsCSV)
+	rt.authed("GET /api/billing/reports/insurance-aging", billingHandler.GetInsuranceAging)
+	rt.authed("GET /api/billing/reports/patient-aging", billingHandler.GetPatientAging)
+	rt.authed("GET /api/billing/reports/collections", billingHandler.GetCollectionsReport)
+
 	// Patient statements (immutable snapshots + PDFs)
 	rt.authed("GET /api/patients/{id}/statements", billingHandler.ListPatientStatements)
 	rt.roles("POST /api/patients/{id}/statements", billingHandler.CreatePatientStatement, billerRoles...)

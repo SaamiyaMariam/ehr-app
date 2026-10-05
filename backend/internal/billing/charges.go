@@ -1182,6 +1182,50 @@ func buildChargeFilter(r *http.Request) (*chargeFilter, string) {
 		f.add("(p.first_name || ' ' || p.last_name) ILIKE '%%' || $%d || '%%'", v)
 	}
 
+	// Claim status of the claim currently billing the service; "none" finds
+	// services that are on no claim.
+	if v := strings.TrimSpace(q.Get("claim_status")); v != "" {
+		if v == "none" {
+			f.where = append(f.where, `NOT EXISTS (
+				SELECT 1 FROM claim_lines cl JOIN claims cm ON cm.id = cl.claim_id
+				WHERE cl.charge_id = c.id AND cl.is_current AND cm.status <> 'voided')`)
+		} else {
+			statuses := strings.Split(v, ",")
+			for _, s := range statuses {
+				if _, ok := claimTransitions[s]; !ok {
+					return nil, "claim_status is invalid"
+				}
+			}
+			f.add(`EXISTS (
+				SELECT 1 FROM claim_lines cl JOIN claims cm ON cm.id = cl.claim_id
+				WHERE cl.charge_id = c.id AND cl.is_current AND cm.status = ANY($%d))`, statuses)
+		}
+	}
+
+	for key, clause := range map[string]string{
+		"has_patient_balance":   "b.patient_balance > 0",
+		"has_insurance_balance": "b.insurance_balance > 0",
+	} {
+		if v := strings.TrimSpace(q.Get(key)); v != "" {
+			if v != "true" {
+				return nil, key + " must be true"
+			}
+			f.where = append(f.where, clause)
+		}
+	}
+
+	// Total open / closed: closed means active with nothing owed by anyone.
+	if v := strings.TrimSpace(q.Get("balance")); v != "" {
+		switch v {
+		case "open":
+			f.where = append(f.where, "b.total_balance <> 0")
+		case "closed":
+			f.where = append(f.where, "(c.status = 'active' AND b.total_balance = 0)")
+		default:
+			return nil, "balance must be open or closed"
+		}
+	}
+
 	return f, ""
 }
 

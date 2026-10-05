@@ -6,11 +6,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Badge, ErrorBox, inputClass, labelClass, money, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { Claim, claimStatus, claimStatusLabels, submissionMethodLabels } from "@/types/claims";
+import { claimQueueLabels } from "@/types/reports";
 
 type Paged = { items: Claim[]; total: number; page: number; page_size: number };
 type Filters = Record<string, string>;
 
 const emptyFilters: Filters = {
+  queue: "",
   patient: "",
   claim_number: "",
   payer_id: "",
@@ -116,6 +118,7 @@ export default function ClaimList({ fixed = {}, initial = {}, showFilters = true
     <section>
       {showFilters && (
         <form onSubmit={submit} className="grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-4">
+          {select("queue", "Work queue", Object.entries(claimQueueLabels), "No work queue")}
           {field("patient", "Patient")}
           {field("claim_number", "Claim number")}
           {select("payer_id", "Payer", payers.map((p) => [p.id, p.payer_name]), "All payers")}

@@ -26,6 +26,16 @@ type PatientAgingRow struct {
 	OldestService string `json:"oldest_service_date"`
 }
 
+// AgingTotals are the bucket totals over every matching row (not just the
+// page that was returned).
+type AgingTotals struct {
+	Bucket0To30  string `json:"bucket_0_30"`
+	Bucket31To60 string `json:"bucket_31_60"`
+	Bucket61To90 string `json:"bucket_61_90"`
+	Bucket91Plus string `json:"bucket_91_plus"`
+	Total        string `json:"total"`
+}
+
 // PatientAgingFilter selects which patients / charges feed the aging query.
 type PatientAgingFilter struct {
 	ClinicianID string
@@ -40,7 +50,7 @@ type PatientAgingFilter struct {
 // queryPatientAging is the single patient-aging query, shared by statement
 // candidates and the patient aging report. Only patient-side balances count
 // (insurance-only balances are never patient due).
-func queryPatientAging(ctx context.Context, q queryRower, f PatientAgingFilter) ([]PatientAgingRow, int, error) {
+func queryPatientAging(ctx context.Context, q queryRower, f PatientAgingFilter) ([]PatientAgingRow, int, AgingTotals, error) {
 	args := []any{}
 	next := func(v any) string {
 		args = append(args, v)
@@ -78,9 +88,29 @@ func queryPatientAging(ctx context.Context, q queryRower, f PatientAgingFilter) 
 		GROUP BY pt.id, pt.first_name, pt.last_name, cr.credit, st.last_date
 		HAVING ` + strings.Join(having, " AND ")
 
+	var totals AgingTotals
 	var total int
-	if err := q.QueryRow(ctx, `SELECT COUNT(*) FROM (SELECT pt.id `+base+`) counted`, args...).Scan(&total); err != nil {
-		return nil, 0, err
+
+	if err := q.QueryRow(
+		ctx,
+		`
+		SELECT COUNT(*),
+			COALESCE(SUM(b1), 0)::numeric(12,2)::text, COALESCE(SUM(b2), 0)::numeric(12,2)::text,
+			COALESCE(SUM(b3), 0)::numeric(12,2)::text, COALESCE(SUM(b4), 0)::numeric(12,2)::text,
+			COALESCE(SUM(bt), 0)::numeric(12,2)::text
+		FROM (
+			SELECT
+				SUM(a.patient_balance) FILTER (WHERE a.bucket = '0-30') AS b1,
+				SUM(a.patient_balance) FILTER (WHERE a.bucket = '31-60') AS b2,
+				SUM(a.patient_balance) FILTER (WHERE a.bucket = '61-90') AS b3,
+				SUM(a.patient_balance) FILTER (WHERE a.bucket = '91+') AS b4,
+				SUM(a.patient_balance) AS bt
+			`+base+`
+		) grouped
+		`,
+		args...,
+	).Scan(&total, &totals.Bucket0To30, &totals.Bucket31To60, &totals.Bucket61To90, &totals.Bucket91Plus, &totals.Total); err != nil {
+		return nil, 0, totals, err
 	}
 
 	limit := f.Limit
@@ -108,7 +138,7 @@ func queryPatientAging(ctx context.Context, q queryRower, f PatientAgingFilter) 
 		paged...,
 	)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, totals, err
 	}
 	defer rows.Close()
 
@@ -120,10 +150,10 @@ func queryPatientAging(ctx context.Context, q queryRower, f PatientAgingFilter) 
 			&r.PatientID, &r.PatientName, &r.Bucket0To30, &r.Bucket31To60, &r.Bucket61To90, &r.Bucket91Plus,
 			&r.Total, &r.Credit, &r.LastStatement, &r.OldestService,
 		); err != nil {
-			return nil, 0, err
+			return nil, 0, totals, err
 		}
 		result = append(result, r)
 	}
 
-	return result, total, rows.Err()
+	return result, total, totals, rows.Err()
 }

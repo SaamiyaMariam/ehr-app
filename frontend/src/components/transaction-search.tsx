@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 import { apiFetch } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
+import { claimStatusLabels } from "@/types/claims";
 import { Badge, ErrorBox, inputClass, labelClass, money, primaryButtonClass, secondaryButtonClass } from "@/lib/ui";
 import { Charge, chargeStatusLabels } from "@/types/charges";
 import { billingMethodLabel, billingMethodLabels } from "@/types/rates";
@@ -14,6 +16,7 @@ type Filters = Record<string, string>;
 
 const emptyFilters: Filters = {
   patient: "",
+  patient_id: "",
   clinician_id: "",
   payer_id: "",
   service_code_id: "",
@@ -21,13 +24,20 @@ const emptyFilters: Filters = {
   to: "",
   billing_method: "",
   status: "",
+  claim_status: "",
+  has_patient_balance: "",
+  has_insurance_balance: "",
+  balance: "",
 };
 
 type Paged = { items: Charge[]; total: number; page: number; page_size: number };
 
-export default function TransactionSearch() {
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [applied, setApplied] = useState<Filters>(emptyFilters);
+// Initial filters can come from a link (dashboard cards, aging reports).
+export default function TransactionSearch({ initial = {} }: { initial?: Filters }) {
+  const start = { ...emptyFilters, ...initial };
+  const [filters, setFilters] = useState<Filters>(start);
+  const [applied, setApplied] = useState<Filters>(start);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Paged | null>(null);
   const [clinicians, setClinicians] = useState<Option[]>([]);
@@ -85,6 +95,35 @@ export default function TransactionSearch() {
     setApplied(filters);
   }
 
+  // Exports exactly what the last search used.
+  async function exportCsv() {
+    setExporting(true);
+    setError("");
+
+    try {
+      const query = new URLSearchParams();
+      Object.entries(applied).forEach(([key, value]) => value && query.set(key, value));
+      await downloadFile(`/api/billing/transactions/export?${query}`, "billing-transactions.csv");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to export");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function toggle(key: string, label: string) {
+    return (
+      <label className="flex items-center gap-2 pt-7 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={filters[key] === "true"}
+          onChange={(e) => setFilters({ ...filters, [key]: e.target.checked ? "true" : "" })}
+        />
+        {label}
+      </label>
+    );
+  }
+
   function select(key: string, label: string, options: Option[], allLabel: string) {
     return (
       <div>
@@ -131,7 +170,24 @@ export default function TransactionSearch() {
           Object.entries(chargeStatusLabels).map(([id, s]) => ({ id, label: s.label })),
           "All statuses",
         )}
-        <div className="flex gap-3 md:col-span-4 md:justify-end">
+        {select(
+          "claim_status",
+          "Claim status",
+          [{ id: "none", label: "Not on a claim" }, ...Object.entries(claimStatusLabels).map(([id, s]) => ({ id, label: s.label }))],
+          "Any claim status",
+        )}
+        {select(
+          "balance",
+          "Total balance",
+          [{ id: "open", label: "Open (balance owed)" }, { id: "closed", label: "Closed (nothing owed)" }],
+          "Open and closed",
+        )}
+        {toggle("has_patient_balance", "Patient balance > 0")}
+        {toggle("has_insurance_balance", "Insurance balance > 0")}
+        <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end">
+          <button type="button" className={secondaryButtonClass} disabled={exporting} onClick={exportCsv}>
+            {exporting ? "Exporting..." : "Export CSV"}
+          </button>
           <button type="button" className={secondaryButtonClass} onClick={() => { setFilters(emptyFilters); setApplied(emptyFilters); setPage(1); }}>
             Clear
           </button>

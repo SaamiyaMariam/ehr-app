@@ -955,6 +955,14 @@ func buildClaimFilter(r *http.Request) (*chargeFilter, string) {
 		f.add("cm.status = ANY($%d)", statuses)
 	}
 
+	if v := strings.TrimSpace(q.Get("queue")); v != "" {
+		clause, ok := claimQueues[v]
+		if !ok {
+			return nil, "queue is invalid"
+		}
+		f.where = append(f.where, "("+clause+")")
+	}
+
 	if v := strings.TrimSpace(q.Get("sequence")); v != "" {
 		if !validEnum(v, claimSequences...) {
 			return nil, "sequence is invalid"

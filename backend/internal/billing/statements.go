@@ -770,7 +770,7 @@ func (h *Handler) GetStatementCandidates(w http.ResponseWriter, r *http.Request)
 	page, pageSize := pageParams(r)
 	filter.Limit, filter.Offset = pageSize, (page-1)*pageSize
 
-	rows, total, err := queryPatientAging(r.Context(), h.db, filter)
+	rows, total, _, err := queryPatientAging(r.Context(), h.db, filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not load patients")
 		return
