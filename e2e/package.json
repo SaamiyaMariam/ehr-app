@@ -1,0 +1,12 @@
+{
+  "name": "ehr-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Real-browser end-to-end checks driven through an installed Chrome/Edge (no browser download)",
+  "scripts": {
+    "module9": "node module9.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}

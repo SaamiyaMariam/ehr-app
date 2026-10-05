@@ -98,6 +98,9 @@ type Claim struct {
 	History   []ClaimHistoryEvent `json:"history,omitempty"`
 	Comments  []ClaimComment      `json:"comments,omitempty"`
 	Documents []ClaimDocument     `json:"documents,omitempty"`
+
+	// Insurance remittances posted against this claim's lines.
+	Remittances []ClaimRemittance `json:"remittances,omitempty"`
 }
 
 var claimSequences = []string{"primary", "secondary", "tertiary", "quaternary"}
@@ -814,6 +817,11 @@ func (h *Handler) getClaim(ctx context.Context, q queryRower, id string) (Claim,
 		return c, err
 	}
 
+	c.Remittances, err = h.listClaimRemittances(ctx, q, id)
+	if err != nil {
+		return c, err
+	}
+
 	c.History, err = h.loadClaimHistory(ctx, q, `WHERE h.claim_id = $1`, id)
 	if err != nil {
 		return c, err
@@ -849,10 +857,17 @@ func (h *Handler) getClaim(ctx context.Context, q queryRower, id string) (Claim,
 	return c, rows.Err()
 }
 
-// claimLinePaymentSQL reports (insurance paid on this claim, the charge's
-// insurance balance, adjudicated?) for claim line cl / claim cm. Payments
-// are introduced by the insurance payments module.
-const claimLinePaymentSQL = `'0.00', b.insurance_balance::text, FALSE`
+// claimLinePaymentSQL reports (insurance paid on this claim line, the
+// charge's insurance balance, finally adjudicated?) for claim line cl and
+// charge balances b.
+const claimLinePaymentSQL = `
+	COALESCE((
+		SELECT SUM(a.amount_paid) FROM insurance_payment_allocations a
+		JOIN insurance_payments p ON p.id = a.payment_id
+		WHERE a.claim_line_id = cl.id AND a.status = 'active' AND p.status = 'posted'
+	), 0)::numeric(12,2)::text,
+	b.insurance_balance::text,
+	` + lineAdjudicatedSQL
 
 func (h *Handler) loadClaimHistory(ctx context.Context, q queryRower, where string, args ...any) ([]ClaimHistoryEvent, error) {
 	rows, err := q.Query(

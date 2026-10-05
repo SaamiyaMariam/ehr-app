@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -78,6 +79,13 @@ func mustCents(value string) int64 {
 	}
 
 	return cents
+}
+
+// isFutureDate reports whether calendar date d (parsed at UTC midnight) is
+// after today's date in now's own location. Dates carry no time zone, so
+// they are compared as dates, never against an instant.
+func isFutureDate(d, now time.Time) bool {
+	return d.After(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
 }
 
 // queryRower is satisfied by *pgxpool.Pool and pgx.Tx.

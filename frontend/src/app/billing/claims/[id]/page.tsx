@@ -272,6 +272,7 @@ export default function ClaimPage() {
                       <th className="px-3 py-2">Auth</th>
                       <th className="px-3 py-2 text-right">Billed</th>
                       <th className="px-3 py-2 text-right">Ins. paid</th>
+                      <th className="px-3 py-2 text-right">Ins. balance</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -296,6 +297,7 @@ export default function ClaimPage() {
                           {money(l.insurance_paid)}
                           {l.adjudicated && <div className="text-xs text-green-700">Adjudicated</div>}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">{money(l.insurance_balance)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -306,6 +308,49 @@ export default function ClaimPage() {
                 {claim.diagnoses?.map((d) => `${d.letter}. ${d.icd10_code} ${d.description}`).join(" · ")}
               </p>
             </section>
+
+            {(claim.remittances?.length ?? 0) > 0 && (
+              <section aria-labelledby="remittances-heading">
+                <h2 id="remittances-heading" className="text-lg font-semibold text-slate-900">Insurance Payments</h2>
+                <div className="mt-3 overflow-x-auto rounded-xl border bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2">Payment</th>
+                        <th className="px-3 py-2">Line</th>
+                        <th className="px-3 py-2 text-right">Allowed</th>
+                        <th className="px-3 py-2 text-right">Paid</th>
+                        <th className="px-3 py-2 text-right">Adjusted</th>
+                        <th className="px-3 py-2 text-right">To patient</th>
+                        <th className="px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {claim.remittances?.map((r) => {
+                        const active = r.allocation_status === "active" && r.payment_status === "posted";
+
+                        return (
+                          <tr key={r.allocation_id} className={`border-b last:border-0 ${active ? "" : "text-slate-500"}`}>
+                            <td className="whitespace-nowrap px-3 py-2">
+                              <Link href={`/billing/insurance-payments/${r.payment_id}`} className="underline">{r.payment_date}</Link>
+                              {r.reference_number && <span className="text-xs text-slate-500"> #{r.reference_number}</span>}
+                            </td>
+                            <td className="px-3 py-2">#{r.line_number} · {r.service_code}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">{r.allowed_amount ? money(r.allowed_amount) : "—"}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">{money(r.amount_paid)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">{money(r.adjusted)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">{money(r.transferred_to_patient)}</td>
+                            <td className="px-3 py-2">
+                              <Badge tone={active ? "green" : "slate"}>{active ? (r.is_final ? "Final" : "Partial") : "Voided"}</Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
             <section className="grid gap-6 md:grid-cols-2">
               <div className={cardClass}>

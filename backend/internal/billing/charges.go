@@ -149,7 +149,7 @@ func validateChargeInput(in *ChargeInput, today time.Time) string {
 		return "date of service must be a valid date (YYYY-MM-DD)"
 	}
 
-	if dos.After(today) {
+	if isFutureDate(dos, today) {
 		return "date of service cannot be in the future"
 	}
 
@@ -496,10 +496,19 @@ const chargeOnClaimSQL = `
 // chargeFinancialActivitySQL is TRUE when any active money movement
 // references charge $1.
 const chargeFinancialActivitySQL = `
-	EXISTS (
-		SELECT 1 FROM patient_payment_allocations a
-		JOIN patient_payments p ON p.id = a.payment_id
-		WHERE a.charge_id = $1 AND a.status = 'active' AND p.status = 'posted'
+	(
+		EXISTS (
+			SELECT 1 FROM patient_payment_allocations a
+			JOIN patient_payments p ON p.id = a.payment_id
+			WHERE a.charge_id = $1 AND a.status = 'active' AND p.status = 'posted'
+		)
+		OR EXISTS (
+			SELECT 1 FROM insurance_payment_allocations a
+			JOIN insurance_payments p ON p.id = a.payment_id
+			WHERE a.charge_id = $1 AND a.status = 'active' AND p.status = 'posted'
+		)
+		OR EXISTS (SELECT 1 FROM billing_adjustments WHERE charge_id = $1 AND status = 'active')
+		OR EXISTS (SELECT 1 FROM responsibility_transfers WHERE charge_id = $1 AND status = 'active')
 	)
 `
 

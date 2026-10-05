@@ -177,7 +177,7 @@ func validatePaymentInput(in *PaymentInput, today time.Time) string {
 		return "payment date must be a valid date"
 	}
 
-	if d.After(today) {
+	if isFutureDate(d, today) {
 		return "payment date cannot be in the future"
 	}
 
@@ -866,7 +866,7 @@ func (h *Handler) RefundPatientPayment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		d, ok := parseDate(req.RefundDate)
-		if !ok || d.After(time.Now()) {
+		if !ok || isFutureDate(d, time.Now()) {
 			return nil, http.StatusBadRequest, "refund date must be a valid date, not in the future", nil
 		}
 

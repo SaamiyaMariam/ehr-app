@@ -121,6 +121,23 @@ export type Claim = {
   history?: ClaimHistoryEvent[];
   comments?: ClaimComment[];
   documents?: ClaimDocument[];
+  remittances?: ClaimRemittance[];
+};
+
+export type ClaimRemittance = {
+  allocation_id: string;
+  payment_id: string;
+  payment_date: string;
+  reference_number: string;
+  payment_status: "posted" | "voided";
+  line_number: number;
+  service_code: string;
+  amount_paid: string;
+  allowed_amount: string;
+  is_final: boolean;
+  allocation_status: "active" | "voided";
+  adjusted: string;
+  transferred_to_patient: string;
 };
 
 export type ClaimDocument = {

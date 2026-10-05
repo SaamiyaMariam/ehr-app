@@ -36,7 +36,7 @@ func cleanSubmissionRequest(req *SubmissionRequest, today time.Time) string {
 		return "submission date must be a valid date"
 	}
 
-	if d.After(today) {
+	if isFutureDate(d, today) {
 		return "submission date cannot be in the future"
 	}
 
@@ -501,6 +501,25 @@ func (h *Handler) StartResubmission(w http.ResponseWriter, r *http.Request) {
 
 		if !previouslySubmitted && req.ResubmissionType != "new" {
 			return badRequest("this claim was never sent, so it can only be corrected as a new claim")
+		}
+
+		// Editing a claim rewrites its lines, which posted remittances point
+		// at; reverse the payments first.
+		var posted bool
+		if err := tx.QueryRow(
+			r.Context(),
+			`SELECT EXISTS(
+				SELECT 1 FROM insurance_payment_allocations a
+				JOIN insurance_payments p ON p.id = a.payment_id
+				WHERE a.claim_id = $1 AND a.status = 'active' AND p.status = 'posted'
+			)`,
+			id,
+		).Scan(&posted); err != nil {
+			return err
+		}
+
+		if posted {
+			return conflict("insurance payments are posted to this claim; void them before reopening it for resubmission")
 		}
 
 		if _, err := tx.Exec(
