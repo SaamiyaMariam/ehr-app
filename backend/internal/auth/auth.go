@@ -23,6 +23,12 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 
+// UserIDFromContext returns the authenticated user's ID set by RequireAuth.
+func UserIDFromContext(ctx context.Context) string {
+	userID, _ := ctx.Value(userIDKey).(string)
+	return userID
+}
+
 func NewHandler(db *pgxpool.Pool, jwtSecret string) *Handler {
 	return &Handler{
 		db:        db,

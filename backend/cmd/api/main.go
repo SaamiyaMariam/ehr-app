@@ -53,6 +53,12 @@ func main() {
 		"clinical_administrator",
 	}
 
+	// Practice-wide billing configuration (defaults, practice profile).
+	billingAdminRoles := []string{
+		"practice_administrator",
+		"practice_biller",
+	}
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -298,6 +304,85 @@ func main() {
 			serviceCodeHandler.SetActive,
 			serviceCodeManagerRoles...,
 		),
+	)
+
+	// Billing configuration / rates
+	mux.HandleFunc(
+		"GET /api/billing/settings",
+		authHandler.RequireAuth(billingHandler.GetPracticeSettings),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/billing/settings",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdatePracticeSettings,
+			billingAdminRoles...,
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/payers/{id}/rate-schedules",
+		authHandler.RequireAuth(billingHandler.ListRateSchedules),
+	)
+
+	mux.HandleFunc(
+		"POST /api/payers/{id}/rate-schedules",
+		authHandler.RequireAnyRole(
+			billingHandler.CreateRateSchedule,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/rate-schedules/{id}",
+		authHandler.RequireAuth(billingHandler.GetRateSchedule),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/rate-schedules/{id}",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdateRateSchedule,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"PATCH /api/rate-schedules/{id}/status",
+		authHandler.RequireAnyRole(
+			billingHandler.SetRateScheduleActive,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/payers/{id}/clinician-rate-schedules",
+		authHandler.RequireAuth(billingHandler.ListClinicianRateSchedules),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/payers/{id}/clinician-rate-schedules",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdateClinicianRateSchedules,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/cash-rates",
+		authHandler.RequireAuth(billingHandler.ListCashRates),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/patients/{id}/cash-rates",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdateCashRates,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"POST /api/billing/rate-preview",
+		authHandler.RequireAuth(billingHandler.RatePreview),
 	)
 
 	log.Println("EHR API running on http://localhost:8080")

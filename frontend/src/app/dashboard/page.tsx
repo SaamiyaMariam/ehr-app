@@ -137,6 +137,18 @@ export default function DashboardPage() {
               Add and manage billing service codes.
             </p>
           </Link>
+          <Link
+            href="/settings/billing"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Billing Settings
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Practice billing defaults and claim profile.
+            </p>
+          </Link>
         </div>
       </div>
     </main>

@@ -26,6 +26,11 @@ type Payer struct {
 
 	InNetwork bool `json:"in_network"`
 
+	// BillingMethod overrides the practice default when set:
+	// "" (practice default), electronic, paper or external.
+	BillingMethod string `json:"billing_method"`
+	InsuranceType string `json:"insurance_type"`
+
 	Address1 string `json:"address_1"`
 	Address2 string `json:"address_2"`
 	Zip      string `json:"zip"`
@@ -71,6 +76,46 @@ func cleanPayer(payer *Payer) {
 
 	payer.Phone = strings.TrimSpace(payer.Phone)
 	payer.Fax = strings.TrimSpace(payer.Fax)
+
+	payer.BillingMethod = strings.ToLower(strings.TrimSpace(payer.BillingMethod))
+	payer.InsuranceType = strings.ToLower(strings.TrimSpace(payer.InsuranceType))
+}
+
+var (
+	validBillingMethods = map[string]bool{
+		"":           true,
+		"electronic": true,
+		"paper":      true,
+		"external":   true,
+	}
+
+	validInsuranceTypes = map[string]bool{
+		"":                  true,
+		"medicare":          true,
+		"medicaid":          true,
+		"tricare":           true,
+		"champva":           true,
+		"group_health_plan": true,
+		"feca_black_lung":   true,
+		"other":             true,
+	}
+)
+
+// validatePayer returns a user-facing message, or "" when valid.
+func validatePayer(payer *Payer) string {
+	if payer.PayerName == "" {
+		return "payer name is required"
+	}
+
+	if !validBillingMethods[payer.BillingMethod] {
+		return "billing method must be electronic, paper or external"
+	}
+
+	if !validInsuranceTypes[payer.InsuranceType] {
+		return "invalid insurance type"
+	}
+
+	return ""
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +128,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	cleanPayer(&payer)
 
-	if payer.PayerName == "" {
-		writeError(w, http.StatusBadRequest, "payer name is required")
+	if message := validatePayer(&payer); message != "" {
+		writeError(w, http.StatusBadRequest, message)
 		return
 	}
 
@@ -105,6 +150,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			state,
 			phone,
 			fax,
+			billing_method,
+			insurance_type,
 			is_active
 		)
 		VALUES (
@@ -118,6 +165,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			NULLIF($8, ''),
 			NULLIF($9, ''),
 			NULLIF($10, ''),
+			NULLIF($11, ''),
+			NULLIF($12, ''),
 			TRUE
 		)
 		RETURNING id, is_active
@@ -132,6 +181,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		payer.State,
 		payer.Phone,
 		payer.Fax,
+		payer.BillingMethod,
+		payer.InsuranceType,
 	).Scan(
 		&payer.ID,
 		&payer.IsActive,
@@ -210,6 +261,8 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 			COALESCE(state, ''),
 			COALESCE(phone, ''),
 			COALESCE(fax, ''),
+			COALESCE(billing_method, ''),
+			COALESCE(insurance_type, ''),
 			is_active
 		FROM payers
 		WHERE id = $1
@@ -227,6 +280,8 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		&payer.State,
 		&payer.Phone,
 		&payer.Fax,
+		&payer.BillingMethod,
+		&payer.InsuranceType,
 		&payer.IsActive,
 	)
 
@@ -255,8 +310,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	cleanPayer(&payer)
 
-	if payer.PayerName == "" {
-		writeError(w, http.StatusBadRequest, "payer name is required")
+	if message := validatePayer(&payer); message != "" {
+		writeError(w, http.StatusBadRequest, message)
 		return
 	}
 
@@ -275,8 +330,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			state = NULLIF($8, ''),
 			phone = NULLIF($9, ''),
 			fax = NULLIF($10, ''),
+			billing_method = NULLIF($11, ''),
+			insurance_type = NULLIF($12, ''),
 			updated_at = NOW()
-		WHERE id = $11
+		WHERE id = $13
 		`,
 		payer.PayerName,
 		payer.PayerID,
@@ -288,6 +345,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		payer.State,
 		payer.Phone,
 		payer.Fax,
+		payer.BillingMethod,
+		payer.InsuranceType,
 		id,
 	)
 

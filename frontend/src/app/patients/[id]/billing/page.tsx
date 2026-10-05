@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import CashRatesSection from "@/components/cash-rates-section";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
 import {
@@ -371,6 +372,8 @@ export default function PatientBillingPage() {
                 )}
               </div>
             </section>
+
+            <CashRatesSection patientId={params.id} />
           </>
         )}
       </div>
