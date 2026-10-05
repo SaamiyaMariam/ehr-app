@@ -536,6 +536,36 @@ func main() {
 		authHandler.RequireAuth(billingHandler.DownloadSuperbill),
 	)
 
+	// Claim submission workflows / claim history
+	for path, handler := range map[string]http.HandlerFunc{
+		"/mark-mailed":             billingHandler.MarkMailed,
+		"/mark-external":           billingHandler.MarkSubmittedExternally,
+		"/submit-electronic":       billingHandler.SubmitElectronic,
+		"/record-rejection":        billingHandler.RecordRejection,
+		"/mark-rejection-reviewed": billingHandler.MarkRejectionReviewed,
+		"/start-resubmission":      billingHandler.StartResubmission,
+	} {
+		mux.HandleFunc(
+			"POST /api/claims/{id}"+path,
+			authHandler.RequireAnyRole(handler, "practice_biller"),
+		)
+	}
+
+	mux.HandleFunc(
+		"GET /api/claims/{id}/electronic-payload",
+		authHandler.RequireAuth(billingHandler.ElectronicPayload),
+	)
+
+	mux.HandleFunc(
+		"GET /api/claim-history",
+		authHandler.RequireAuth(billingHandler.ListClaimHistory),
+	)
+
+	mux.HandleFunc(
+		"GET /api/billing/integrations",
+		authHandler.RequireAuth(billingHandler.GetIntegrations),
+	)
+
 	log.Println("EHR API running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {

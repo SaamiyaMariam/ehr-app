@@ -11,10 +11,14 @@ import (
 
 type Handler struct {
 	db *pgxpool.Pool
+
+	// clearinghouse is nil unless a real provider is configured; electronic
+	// submission then fails with CLEARINGHOUSE_NOT_CONFIGURED.
+	clearinghouse ClearinghouseProvider
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
-	return &Handler{db: db}
+	return &Handler{db: db, clearinghouse: clearinghouseFromEnv()}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -362,7 +362,7 @@ var claimTransitions = map[string][]string{
 	"submitted":            {"sent", "rejected_new", "paid", "draft"},
 	"sent":                 {"rejected_new", "paid", "draft"},
 	"resubmitted":          {"sent", "rejected_new", "paid", "draft", "voided"},
-	"paper_generated":      {"paper_generated", "submitted", "resubmitted", "rejected_new", "paid", "draft"},
+	"paper_generated":      {"paper_generated", "submitted", "resubmitted", "rejected_new", "paid", "draft", "voided"},
 	"externally_submitted": {"rejected_new", "paid", "draft", "voided"},
 	"rejected_new":         {"rejected", "draft"},
 	"rejected":             {"draft"},
