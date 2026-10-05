@@ -89,7 +89,7 @@ try {
     await page.selectOption("#f-claim_status", "none");
     await page.getByLabel("Insurance balance > 0").check();
     await page.getByRole("button", { name: "Search" }).click();
-    await page.waitForFunction(() => /1 result/.test(document.body.innerText));
+    await page.waitForFunction(() => document.querySelectorAll("table tbody tr").length === 1 && /\b1 result\b/.test(document.body.innerText));
     const text = await page.locator("table tbody").innerText();
     assert(/\$0\.00/.test(text), "unbilled service row is present");
     assert((await page.locator("table tbody tr").count()) === 1, "exactly the one unbilled service matches");
@@ -101,7 +101,7 @@ try {
     await page.selectOption("#f-claim_status", "");
     await page.getByLabel("Insurance balance > 0").uncheck();
     await page.getByRole("button", { name: "Search" }).click();
-    await page.waitForFunction(() => /3 results/.test(document.body.innerText));
+    await page.waitForFunction(() => document.querySelectorAll("table tbody tr").length === 3 && /\b3 results\b/.test(document.body.innerText));
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),

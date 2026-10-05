@@ -747,8 +747,9 @@ func buildAdjudicationSnapshot(ctx context.Context, q queryRower, prev previousC
 			SELECT cl.id, cl.line_number, cl.line_total::text,
 				COALESCE((SELECT SUM(a.amount_paid) FROM insurance_payment_allocations a JOIN insurance_payments p ON p.id = a.payment_id
 					WHERE a.claim_line_id = cl.id AND a.status = 'active' AND p.status = 'posted'), 0)::numeric(12,2)::text,
-				(SELECT SUM(a.allowed_amount) FROM insurance_payment_allocations a JOIN insurance_payments p ON p.id = a.payment_id
-					WHERE a.claim_line_id = cl.id AND a.status = 'active' AND p.status = 'posted')::numeric(12,2)::text,
+				(SELECT a.allowed_amount FROM insurance_payment_allocations a JOIN insurance_payments p ON p.id = a.payment_id
+					WHERE a.claim_line_id = cl.id AND a.status = 'active' AND p.status = 'posted' AND a.allowed_amount IS NOT NULL
+					ORDER BY a.created_at DESC, a.id DESC LIMIT 1)::numeric(12,2)::text,
 				COALESCE((SELECT SUM(ad.amount) FROM billing_adjustments ad JOIN insurance_payment_allocations a ON a.id = ad.insurance_allocation_id
 					WHERE a.claim_line_id = cl.id AND ad.status = 'active' AND a.status = 'active'), 0)::numeric(12,2)::text,
 				COALESCE((SELECT SUM(t.amount) FROM responsibility_transfers t JOIN insurance_payment_allocations a ON a.id = t.insurance_allocation_id

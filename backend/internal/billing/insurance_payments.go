@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Insurance payments are manually posted remittances (EOBs). A remittance
@@ -59,6 +60,15 @@ func writeFinError(w http.ResponseWriter, err error, fallback string) {
 	var fe *finError
 	if errors.As(err, &fe) {
 		writeError(w, fe.status, fe.message)
+		return
+	}
+
+	// Two money transactions that lock the same claims in opposite orders can
+	// make PostgreSQL abort one of them (deadlock / serialization failure).
+	// Nothing was written, so tell the caller to simply retry.
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && (pgErr.Code == "40P01" || pgErr.Code == "40001") {
+		writeError(w, http.StatusConflict, "another change to these records was in progress; nothing was saved, please try again")
 		return
 	}
 
@@ -1285,17 +1295,22 @@ func (h *Handler) CreateInsurancePayment(w http.ResponseWriter, r *http.Request)
 func lockInsurancePayment(ctx context.Context, tx pgx.Tx, paymentID string) (payerID, status, reference string, available int64, err error) {
 	var amount, allocated string
 
+	// Lock first, total afterwards (see lockPostedPayment): a snapshot taken
+	// before waiting for the lock would miss allocations just committed.
 	err = tx.QueryRow(
 		ctx,
-		`
-		SELECT p.payer_id, p.status, COALESCE(p.reference_number, ''), p.amount::text,
-			COALESCE((SELECT SUM(a.amount_paid) FROM insurance_payment_allocations a WHERE a.payment_id = p.id AND a.status = 'active'), 0)::text
-		FROM insurance_payments p
-		WHERE p.id = $1
-		FOR UPDATE OF p
-		`,
+		`SELECT payer_id, status, COALESCE(reference_number, ''), amount::text FROM insurance_payments WHERE id = $1 FOR UPDATE`,
 		paymentID,
-	).Scan(&payerID, &status, &reference, &amount, &allocated)
+	).Scan(&payerID, &status, &reference, &amount)
+	if err != nil {
+		return
+	}
+
+	err = tx.QueryRow(
+		ctx,
+		`SELECT COALESCE((SELECT SUM(amount_paid) FROM insurance_payment_allocations WHERE payment_id = $1 AND status = 'active'), 0)::text`,
+		paymentID,
+	).Scan(&allocated)
 	if err != nil {
 		return
 	}

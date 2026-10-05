@@ -428,6 +428,14 @@ func buildStatementSnapshot(ctx context.Context, q queryRower, patientID string,
 		}
 	}
 
+	// A period can end with the patient ahead (a payment dated before the
+	// charge it was applied to). The stored balance is never negative; the
+	// overpayment is shown as credit instead.
+	if due := mustCents(s.BalanceDue); due < 0 {
+		credit = formatMoney(mustCents(credit) - due)
+		s.BalanceDue = "0.00"
+	}
+
 	s.CreditOnAccount = credit
 	s.AmountDue = formatMoney(max(mustCents(s.BalanceDue)-mustCents(credit), 0))
 
@@ -622,7 +630,9 @@ func (h *Handler) CreatePatientStatement(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tx, err := h.db.Begin(r.Context())
+	// One consistent read: the statement's lines, totals and credit must all
+	// come from the same moment even while payments are being posted.
+	tx, err := h.db.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not generate statement")
 		return
@@ -902,7 +912,7 @@ func (h *Handler) CreateStatementBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) generateOne(ctx context.Context, patientID string, req StatementRequest, batchID, userID string, now time.Time) (string, error) {
-	tx, err := h.db.Begin(ctx)
+	tx, err := h.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return "", err
 	}

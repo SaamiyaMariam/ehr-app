@@ -323,10 +323,12 @@ func TestSecondarySnapshotSurvivesLaterPrimaryChanges(t *testing.T) {
 	// The primary claim cannot be reopened either.
 	m.biller.post(t, "/api/claims/"+m.primary.ID+"/start-resubmission", map[string]any{"resubmission_type": "new"}).mustStatus(t, http.StatusConflict)
 
-	// A later write-off on the charge changes the live balance, not the snapshot.
+	// A standalone write-off cannot be posted behind the open follow-on claim's
+	// back (the next payer's remittance is where it belongs).
 	m.biller.post(t, "/api/charges/"+m.charge+"/adjustments", map[string]any{
 		"party": "insurance", "adjustment_type": "payer_adjustment", "amount": "10.00", "reason": "late correction",
-	}).mustStatus(t, http.StatusCreated)
+	}).mustStatus(t, http.StatusBadRequest)
+	m.assertBalances(m.charge, "0.00", "50.00")
 
 	after := m.biller.get(t, "/api/claims/"+secondary.Str("id")).mustStatus(t, http.StatusOK)
 	if after.Str("snapshot.adjudication.total_eligible") != before || before != "50.00" {

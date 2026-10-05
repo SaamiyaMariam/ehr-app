@@ -3,7 +3,8 @@
 // through the UI in an installed Chrome (no browser download needed).
 
 import { chromium } from "playwright-core";
-import { mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -73,14 +74,40 @@ export async function signup(label) {
   return { token: json.token, id: json.user.id, email, name: `E2E ${label}` };
 }
 
-// `adminToken` must belong to a user allowed to assign roles.
-export async function grantRoles(adminToken, userId, roles) {
-  await must(api("PUT", `/api/users/${userId}/roles`, adminToken, { roles }));
+// Role assignment is administrator-only. The first administrator is created
+// the way an operator would on a fresh install: sign up, then run the local
+// bootstrap command (backend/cmd/bootstrap-admin) with database access.
+let adminPromise;
+
+export function getAdmin() {
+  adminPromise ??= (async () => {
+    const admin = await signup("E2E Admin");
+    const backend = path.resolve(here, "..", "backend");
+    const env = { ...process.env };
+
+    for (const line of readFileSync(path.join(backend, ".env"), "utf8").split(/\r?\n/)) {
+      const match = line.match(/^(DATABASE_URL)=(.*)$/);
+      if (match) env[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    }
+
+    execFileSync(process.env.E2E_GO ?? "go", ["run", "./cmd/bootstrap-admin", "--email", admin.email], { cwd: backend, env, stdio: "pipe" });
+
+    return admin;
+  })();
+
+  return adminPromise;
+}
+
+// The first argument is kept for older callers; roles are always assigned by
+// the bootstrapped administrator.
+export async function grantRoles(_adminToken, userId, roles) {
+  const admin = await getAdmin();
+  await must(api("PUT", `/api/users/${userId}/roles`, admin.token, { roles }));
 }
 
 export async function userWithRoles(adminToken, label, roles) {
   const user = await signup(label);
-  await grantRoles(adminToken ?? user.token, user.id, roles);
+  await grantRoles(adminToken, user.id, roles);
   return user;
 }
 
@@ -230,6 +257,8 @@ export async function login(page, user) {
 }
 
 export async function logout(page) {
+  // localStorage is only reachable once the page is on the app's origin.
+  await page.goto(`${BASE}/login`);
   await page.evaluate(() => localStorage.clear());
   await page.goto(`${BASE}/login`);
 }
@@ -313,4 +342,20 @@ export async function assertCards(page, patientId, expected, label) {
   }
 
   return first;
+}
+
+// Polls `fn` until it returns a truthy value (UI writes land asynchronously).
+export async function eventually(fn, { timeout = 15000, interval = 300 } = {}) {
+  const deadline = Date.now() + timeout;
+  let last;
+  for (;;) {
+    try {
+      last = await fn();
+      if (last) return last;
+    } catch (error) {
+      last = error;
+    }
+    if (Date.now() > deadline) throw new Error(`condition not met in ${timeout}ms${last instanceof Error ? `: ${last.message}` : ""}`);
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
 }

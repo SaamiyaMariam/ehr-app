@@ -129,6 +129,10 @@ func validatePriorAuthorization(pa *PriorAuthorization) string {
 		return "uses remaining cannot be greater than uses allowed"
 	}
 
+	if len(pa.ServiceCodeIDs) > 200 {
+		return "an authorization can list at most 200 service codes"
+	}
+
 	if pa.AppliesToAnyServiceCode {
 		// "Any" replaces specific mappings; don't keep stale ones. Empty (not
 		// nil) so the mapping cleanup's ANY($2) gets '{}' rather than NULL.

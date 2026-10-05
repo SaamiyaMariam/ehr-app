@@ -3,6 +3,7 @@ package billing
 import (
 	"encoding/csv"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -100,12 +101,15 @@ func (h *Handler) ExportTransactionsCSV(w http.ResponseWriter, r *http.Request) 
 	out := csv.NewWriter(w)
 	_ = out.Write(transactionCSVHeader)
 
+	scanFailed := false
+
 	for rows.Next() {
 		var c [15]string
 
 		if err := rows.Scan(
 			&c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7], &c[8], &c[9], &c[10], &c[11], &c[12], &c[13], &c[14],
 		); err != nil {
+			scanFailed = true
 			break
 		}
 
@@ -114,6 +118,14 @@ func (h *Handler) ExportTransactionsCSV(w http.ResponseWriter, r *http.Request) 
 			c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12], c[13], c[14],
 		}
 		_ = out.Write(record)
+	}
+
+	// The status line is already sent, so a failure part-way cannot become an
+	// error response. End the file with a marker row instead of letting a
+	// truncated export pass for a complete one.
+	if scanFailed || rows.Err() != nil {
+		log.Printf("transaction export failed part-way: scan=%v err=%v", scanFailed, rows.Err())
+		_ = out.Write([]string{"EXPORT INCOMPLETE - an error stopped this export; do not rely on it"})
 	}
 
 	out.Flush()

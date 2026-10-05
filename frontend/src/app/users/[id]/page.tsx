@@ -17,6 +17,7 @@ export default function UserPage() {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [initialRoles, setInitialRoles] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -61,9 +62,9 @@ export default function UserPage() {
         setUser(userData);
         setRoles(rolesData);
 
-        setSelectedRoles(
-          userRolesData.map((role: Role) => role.key)
-        );
+        const assigned = userRolesData.map((role: Role) => role.key);
+        setSelectedRoles(assigned);
+        setInitialRoles(assigned);
       } catch (err) {
         setError(
           err instanceof Error
@@ -98,29 +99,37 @@ export default function UserPage() {
       );
     }
 
-    const roleResponse = await apiFetch(
-      `/api/users/${params.id}/roles`,
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          roles: selectedRoles,
-        }),
-      }
-    );
-
-    const roleData = await roleResponse.json();
-
-    if (!roleResponse.ok) {
-      throw new Error(
-        roleData.error || "Unable to update roles"
-      );
-    }
-
     setUser(userData);
 
-    setSelectedRoles(
-      roleData.map((role: Role) => role.key)
-    );
+    // Only administrators may change roles, so a profile edit does not
+    // touch them unless the selection actually changed.
+    const changed =
+      [...selectedRoles].sort().join(",") !==
+      [...initialRoles].sort().join(",");
+
+    if (changed) {
+      const roleResponse = await apiFetch(
+        `/api/users/${params.id}/roles`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            roles: selectedRoles,
+          }),
+        }
+      );
+
+      const roleData = await roleResponse.json();
+
+      if (!roleResponse.ok) {
+        throw new Error(
+          roleData.error || "Unable to update roles"
+        );
+      }
+
+      const saved = roleData.map((role: Role) => role.key);
+      setSelectedRoles(saved);
+      setInitialRoles(saved);
+    }
 
     setMessage("User updated successfully.");
   }

@@ -1,14 +1,14 @@
 // Package server wires HTTP routes to handlers and role checks.
-//
-// Every route is registered through one of three helpers (public, authed,
-// roles) so the access class of each endpoint is explicit, recorded in
-// Routes, and covered by the route-security tests.
+// Every route is registered through one of the helpers (public, session,
+// authed, roles, selfOrRoles) so the access class of each endpoint is
+// explicit, recorded in Routes, and covered by the route-security tests.
 package server
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,9 +24,20 @@ import (
 
 // Access classes of a route.
 const (
+	// AccessPublic needs no token (sign-in, sign-up, health).
 	AccessPublic = "public"
-	AccessAuth   = "authenticated"
-	AccessRoles  = "roles"
+	// AccessSession needs a valid token for an active account, no role (the
+	// caller's own session only).
+	AccessSession = "session"
+	// AccessAuth needs an active account that holds at least one role
+	// ("staff"). Accounts created by self sign-up see nothing until an
+	// administrator assigns a role.
+	AccessAuth = "authenticated"
+	// AccessRoles needs one of the listed roles.
+	AccessRoles = "roles"
+	// AccessSelfOrRoles lets users act on their own record, otherwise needs
+	// one of the listed roles.
+	AccessSelfOrRoles = "self_or_roles"
 )
 
 // RouteInfo documents how one route is protected.
@@ -48,10 +59,16 @@ func (r *Router) public(pattern string, h http.HandlerFunc) {
 	r.mux.HandleFunc(pattern, h)
 }
 
-// authed requires a valid token but no particular role.
+// session requires a valid token only (used for the caller's own session).
+func (r *Router) session(pattern string, h http.HandlerFunc) {
+	r.Routes = append(r.Routes, RouteInfo{Pattern: pattern, Access: AccessSession})
+	r.mux.HandleFunc(pattern, r.auth.RequireAuth(h))
+}
+
+// authed requires an authenticated staff member (any role).
 func (r *Router) authed(pattern string, h http.HandlerFunc) {
 	r.Routes = append(r.Routes, RouteInfo{Pattern: pattern, Access: AccessAuth})
-	r.mux.HandleFunc(pattern, r.auth.RequireAuth(h))
+	r.mux.HandleFunc(pattern, r.auth.RequireStaff(h))
 }
 
 // roles requires a valid token and at least one of the listed roles.
@@ -60,9 +77,43 @@ func (r *Router) roles(pattern string, h http.HandlerFunc, roleKeys ...string) {
 	r.mux.HandleFunc(pattern, r.auth.RequireAnyRole(h, roleKeys...))
 }
 
-// Role groups used across billing routes.
+// selfOrRoles lets a user act on their own record ({id}), otherwise requires
+// one of the roles.
+func (r *Router) selfOrRoles(pattern string, h http.HandlerFunc, roleKeys ...string) {
+	r.Routes = append(r.Routes, RouteInfo{Pattern: pattern, Access: AccessSelfOrRoles, Roles: roleKeys})
+	r.mux.HandleFunc(pattern, r.auth.RequireSelfOrAnyRole(h, "id", roleKeys...))
+}
+
+// maxRequestBody bounds every request body (JSON payloads are small).
+const maxRequestBody = 1 << 20
+
+// harden applies request limits and defensive headers to every response.
+func harden(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Role groups used across routes.
 var (
 	billerRoles = []string{"practice_biller"}
+
+	// Only administrators manage accounts and role assignments.
+	adminRoles = []string{"practice_administrator"}
+
+	// Patient demographics are maintained by clinical and scheduling staff.
+	patientWriteRoles = []string{"clinician", "practice_scheduler"}
 
 	serviceCodeManagerRoles = []string{
 		"practice_administrator",
@@ -116,24 +167,24 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	// Auth
 	rt.public("POST /api/auth/signup", rt.auth.Signup)
 	rt.public("POST /api/auth/login", rt.auth.Login)
-	rt.authed("GET /api/auth/me", rt.auth.Me)
+	rt.session("GET /api/auth/me", rt.auth.Me)
 
 	// Patients
 	rt.authed("GET /api/patients", patientHandler.List)
-	rt.roles("POST /api/patients", patientHandler.Create, "clinician", "practice_scheduler")
+	rt.roles("POST /api/patients", patientHandler.Create, patientWriteRoles...)
 	rt.authed("GET /api/patients/{id}", patientHandler.Get)
-	rt.authed("PUT /api/patients/{id}", patientHandler.Update)
+	rt.roles("PUT /api/patients/{id}", patientHandler.Update, patientWriteRoles...)
 
 	// Users / Employees
 	rt.authed("GET /api/users", userHandler.List)
-	rt.authed("POST /api/users", userHandler.Create)
-	rt.authed("GET /api/users/{id}", userHandler.Get)
-	rt.authed("PUT /api/users/{id}", userHandler.Update)
+	rt.roles("POST /api/users", userHandler.Create, adminRoles...)
+	rt.selfOrRoles("GET /api/users/{id}", userHandler.Get, adminRoles...)
+	rt.selfOrRoles("PUT /api/users/{id}", userHandler.Update, adminRoles...)
 
 	// Roles
 	rt.authed("GET /api/roles", roleHandler.List)
-	rt.authed("GET /api/users/{id}/roles", roleHandler.GetUserRoles)
-	rt.authed("PUT /api/users/{id}/roles", roleHandler.UpdateUserRoles)
+	rt.selfOrRoles("GET /api/users/{id}/roles", roleHandler.GetUserRoles, adminRoles...)
+	rt.roles("PUT /api/users/{id}/roles", roleHandler.UpdateUserRoles, adminRoles...)
 
 	// Payers
 	rt.authed("GET /api/payers", payerHandler.List)
@@ -291,5 +342,5 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	rt.roles("POST /api/billing-adjustments/{id}/void", billingHandler.VoidAdjustment, billerRoles...)
 	rt.roles("POST /api/responsibility-transfers/{id}/void", billingHandler.VoidTransfer, billerRoles...)
 
-	return rt.mux, rt
+	return harden(rt.mux), rt
 }

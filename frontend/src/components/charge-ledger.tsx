@@ -37,11 +37,13 @@ export default function ChargeLedger({
   patientId,
   chargeId,
   voided,
+  selfPay = false,
   onCharge,
 }: {
   patientId: string;
   chargeId: string;
   voided: boolean;
+  selfPay?: boolean;
   onCharge: (charge: Charge) => void;
 }) {
   const [data, setData] = useState<{ breakdown: ChargeBreakdown; events: LedgerEvent[] } | null>(null);
@@ -110,7 +112,9 @@ export default function ChargeLedger({
         {!voided && (
           <div className="flex gap-3">
             <button type="button" className={secondaryButtonClass} onClick={() => setDialog("adjust")}>Post Adjustment</button>
-            <button type="button" className={secondaryButtonClass} onClick={() => setDialog("transfer")}>Transfer Responsibility</button>
+            {!selfPay && (
+              <button type="button" className={secondaryButtonClass} onClick={() => setDialog("transfer")}>Transfer Responsibility</button>
+            )}
           </div>
         )}
       </div>
@@ -193,7 +197,7 @@ export default function ChargeLedger({
           description="Reduces the selected side's balance without money changing hands. Recorded permanently; reverse it by voiding."
           confirmLabel="Post Adjustment"
           fields={[
-            { name: "party", label: "Applies to", type: "select", required: true, defaultValue: "insurance", options: [{ value: "insurance", label: "Insurance balance" }, { value: "patient", label: "Patient balance" }] },
+            { name: "party", label: "Applies to", type: "select", required: true, defaultValue: selfPay ? "patient" : "insurance", options: selfPay ? [{ value: "patient", label: "Patient balance" }] : [{ value: "insurance", label: "Insurance balance" }, { value: "patient", label: "Patient balance" }] },
             { name: "adjustment_type", label: "Type", type: "select", required: true, defaultValue: "payer_adjustment", options: adjustmentOptions },
             { name: "amount", label: "Amount", type: "number", required: true },
             { name: "reference", label: "Reference", maxLength: 100 },

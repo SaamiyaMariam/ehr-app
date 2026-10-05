@@ -162,6 +162,7 @@ export default function ChargePage() {
               patientId={params.id}
               chargeId={params.chargeId}
               voided={charge.status === "voided"}
+              selfPay={charge.billing_method === "direct"}
               onCharge={setCharge}
             />
 

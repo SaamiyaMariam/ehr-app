@@ -97,6 +97,54 @@ func chargeBalanceFor(ctx context.Context, tx pgx.Tx, chargeID string) (patientI
 	return
 }
 
+// checkInsuranceAction refuses standalone insurance-side money movements that
+// would strand or double-bill a balance:
+//   - a self-pay (direct) charge has no payer, so it cannot carry insurance
+//     responsibility;
+//   - while a later-sequence claim is still live, the forwarded balance belongs
+//     to that claim's payer. Reducing it here (write-off, or transfer to the
+//     patient) would bill the patient while the next payer still owes it, and
+//     its remittance would later be rejected. Post it to that claim instead.
+//
+// reducesInsurance is true for insurance adjustments and for transfers away
+// from insurance. It returns a user-facing message, or "".
+func checkInsuranceAction(ctx context.Context, tx pgx.Tx, chargeID string, reducesInsurance bool) (string, error) {
+	var billingMethod string
+	if err := tx.QueryRow(ctx, `SELECT billing_method FROM billing_charges WHERE id = $1`, chargeID).Scan(&billingMethod); err != nil {
+		return "", err
+	}
+
+	if billingMethod == "direct" {
+		return "this is a self-pay service; it has no insurance responsibility to adjust or transfer", nil
+	}
+
+	if !reducesInsurance {
+		return "", nil
+	}
+
+	var followOn string
+	err := tx.QueryRow(
+		ctx,
+		`
+		SELECT cm.claim_number
+		FROM claim_lines cl
+		JOIN claims cm ON cm.id = cl.claim_id
+		WHERE cl.charge_id = $1 AND cl.is_current AND cm.status NOT IN ('paid', 'voided')
+		  AND array_position(`+sequenceRankSQL+`, cl.sequence::text) > 1
+		LIMIT 1
+		`,
+		chargeID,
+	).Scan(&followOn)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return "this service is on open follow-on claim " + followOn + "; post the payer's response to that claim, or void the claim first", nil
+}
+
 func (h *Handler) CreateAdjustment(w http.ResponseWriter, r *http.Request) {
 	chargeID := r.PathValue("id")
 
@@ -140,6 +188,14 @@ func (h *Handler) CreateAdjustment(w http.ResponseWriter, r *http.Request) {
 		open := balance.Patient
 		if req.Party == "insurance" {
 			open = balance.Insurance
+
+			message, err := checkInsuranceAction(r.Context(), tx, chargeID, true)
+			if err != nil {
+				return err
+			}
+			if message != "" {
+				return finBadRequest(message)
+			}
 		}
 
 		if adj.Amount > open {
@@ -224,6 +280,14 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		open := balance.Patient
 		if req.FromParty == "insurance" {
 			open = balance.Insurance
+		}
+
+		message, err := checkInsuranceAction(r.Context(), tx, chargeID, req.FromParty == "insurance")
+		if err != nil {
+			return err
+		}
+		if message != "" {
+			return finBadRequest(message)
 		}
 
 		if cents > open {

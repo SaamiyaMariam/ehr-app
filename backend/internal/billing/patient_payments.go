@@ -526,7 +526,7 @@ func (h *Handler) CreatePatientPayment(w http.ResponseWriter, r *http.Request) {
 	var existingID, existingPatient string
 	err = tx.QueryRow(r.Context(), `SELECT id, patient_id FROM patient_payments WHERE idempotency_key = $1`, in.IdempotencyKey).Scan(&existingID, &existingPatient)
 	if err == nil {
-		if existingPatient != patientID {
+		if !strings.EqualFold(existingPatient, patientID) {
 			writeError(w, http.StatusConflict, "this idempotency key was already used for another payment")
 			return
 		}
@@ -604,18 +604,27 @@ func (h *Handler) CreatePatientPayment(w http.ResponseWriter, r *http.Request) {
 func lockPostedPayment(ctx context.Context, tx pgx.Tx, paymentID string) (patientID string, available int64, status string, err error) {
 	var amount, allocated, refunded string
 
+	// Lock first, total afterwards in a separate statement: totals computed in
+	// the locking statement itself would use the snapshot from before the lock
+	// wait and miss refunds / allocations committed by whoever held the lock.
+	err = tx.QueryRow(
+		ctx,
+		`SELECT patient_id, status, amount::text FROM patient_payments WHERE id = $1 FOR UPDATE`,
+		paymentID,
+	).Scan(&patientID, &status, &amount)
+	if err != nil {
+		return
+	}
+
 	err = tx.QueryRow(
 		ctx,
 		`
-		SELECT p.patient_id, p.status, p.amount::text,
-			COALESCE((SELECT SUM(a.amount) FROM patient_payment_allocations a WHERE a.payment_id = p.id AND a.status = 'active'), 0)::text,
-			COALESCE((SELECT SUM(f.amount) FROM patient_payment_refunds f WHERE f.payment_id = p.id), 0)::text
-		FROM patient_payments p
-		WHERE p.id = $1
-		FOR UPDATE OF p
+		SELECT
+			COALESCE((SELECT SUM(amount) FROM patient_payment_allocations WHERE payment_id = $1 AND status = 'active'), 0)::text,
+			COALESCE((SELECT SUM(amount) FROM patient_payment_refunds WHERE payment_id = $1), 0)::text
 		`,
 		paymentID,
-	).Scan(&patientID, &status, &amount, &allocated, &refunded)
+	).Scan(&allocated, &refunded)
 	if err != nil {
 		return
 	}
@@ -851,13 +860,19 @@ func (h *Handler) RefundPatientPayment(w http.ResponseWriter, r *http.Request) {
 			return nil, http.StatusBadRequest, "an idempotency key (UUID) is required", nil
 		}
 
-		// Retried refund requests do not refund twice.
-		var already bool
-		if err := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM patient_payment_refunds WHERE idempotency_key = $1)`, req.IdempotencyKey).Scan(&already); err != nil {
-			return nil, 0, "", err
-		}
-		if already {
+		// Retried refund requests do not refund twice; a key that belongs to a
+		// refund of a different payment is a client mistake, not a retry.
+		var previousPayment string
+		err := tx.QueryRow(r.Context(), `SELECT payment_id::text FROM patient_payment_refunds WHERE idempotency_key = $1`, req.IdempotencyKey).Scan(&previousPayment)
+		if err == nil {
+			if previousPayment != paymentID {
+				return nil, http.StatusConflict, "this idempotency key was already used for a different refund", nil
+			}
+
 			return []any{}, 0, "", nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, 0, "", err
 		}
 
 		cents, ok := parseMoney(req.Amount)
@@ -887,7 +902,7 @@ func (h *Handler) RefundPatientPayment(w http.ResponseWriter, r *http.Request) {
 			return nil, http.StatusBadRequest, fmt.Sprintf("only %s of this payment is unapplied and refundable; unapply it from services first", formatMoney(available)), nil
 		}
 
-		_, err := tx.Exec(
+		_, err = tx.Exec(
 			r.Context(),
 			`
 			INSERT INTO patient_payment_refunds (
