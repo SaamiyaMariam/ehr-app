@@ -125,6 +125,18 @@ export default function DashboardPage() {
               Add and manage payers.
             </p>
           </Link>
+          <Link
+            href="/settings/service-codes"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Service Codes
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Add and manage billing service codes.
+            </p>
+          </Link>
         </div>
       </div>
     </main>

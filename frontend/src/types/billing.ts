@@ -151,3 +151,94 @@ export function priorityLabel(priority: string) {
     priority
   );
 }
+
+export type UsageSetting = "once_per_service" | "per_unit";
+
+export type PriorAuthorizationServiceCode = {
+  id: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+};
+
+export type PriorAuthorization = {
+  id?: string;
+  insurance_policy_id?: string;
+
+  authorization_code: string;
+
+  applies_to_any_service_code: boolean;
+
+  // Write model; service_codes is returned by the API for display.
+  service_code_ids: string[];
+  service_codes?: PriorAuthorizationServiceCode[];
+
+  start_date: string;
+  expiration_date: string;
+
+  uses_allowed: number | null;
+  uses_remaining: number | null;
+
+  usage_setting: UsageSetting;
+
+  comments: string;
+
+  is_active: boolean;
+};
+
+export const emptyPriorAuthorization: PriorAuthorization = {
+  authorization_code: "",
+
+  applies_to_any_service_code: false,
+
+  service_code_ids: [],
+
+  start_date: "",
+  expiration_date: "",
+
+  uses_allowed: null,
+  uses_remaining: null,
+
+  usage_setting: "once_per_service",
+
+  comments: "",
+
+  is_active: true,
+};
+
+export const usageSettingOptions: { value: UsageSetting; label: string }[] = [
+  { value: "once_per_service", label: "Once per Service" },
+  { value: "per_unit", label: "Per Unit" },
+];
+
+export function usageSettingLabel(setting: string) {
+  return (
+    usageSettingOptions.find((option) => option.value === setting)?.label ??
+    setting
+  );
+}
+
+function todayISO() {
+  // en-CA formats as YYYY-MM-DD in the viewer's local time zone.
+  return new Date().toLocaleDateString("en-CA");
+}
+
+// Simple deterministic warnings; no claims-based usage tracking yet.
+export function priorAuthorizationWarnings(
+  authorization: Pick<PriorAuthorization, "expiration_date" | "uses_remaining">,
+) {
+  const warnings: string[] = [];
+
+  if (
+    authorization.expiration_date &&
+    authorization.expiration_date < todayISO()
+  ) {
+    warnings.push("Expired");
+  }
+
+  if (authorization.uses_remaining === 0) {
+    warnings.push("No uses remaining");
+  }
+
+  return warnings;
+}

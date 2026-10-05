@@ -4,27 +4,35 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import InsurancePolicyForm from "@/components/insurance-policy-form";
-import PriorAuthorizationsSection from "@/components/prior-authorizations-section";
+import PriorAuthorizationForm from "@/components/prior-authorization-form";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
-import { InsurancePolicy, priorityLabel } from "@/types/billing";
+import {
+  PriorAuthorization,
+  priorAuthorizationWarnings,
+} from "@/types/billing";
 
-export default function InsurancePolicyPage() {
-  const params = useParams<{ id: string; policyId: string }>();
+export default function PriorAuthorizationPage() {
+  const params = useParams<{
+    id: string;
+    policyId: string;
+    authorizationId: string;
+  }>();
   const router = useRouter();
 
-  const [policy, setPolicy] = useState<InsurancePolicy | null>(null);
+  const policyPath = `/patients/${params.id}/billing/insurance/${params.policyId}`;
+
+  const [authorization, setAuthorization] =
+    useState<PriorAuthorization | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [authorizationsRefreshKey, setAuthorizationsRefreshKey] = useState(0);
 
   useEffect(() => {
-    async function loadPolicy() {
+    async function loadAuthorization() {
       try {
         const response = await apiFetch(
-          `/api/insurance-policies/${params.policyId}`,
+          `/api/prior-authorizations/${params.authorizationId}`,
         );
 
         if (response.status === 401) {
@@ -38,41 +46,43 @@ export default function InsurancePolicyPage() {
         if (!response.ok) {
           throw new Error(
             data.error ||
-              `Unable to load insurance policy (${response.status})`,
+              `Unable to load prior authorization (${response.status})`,
           );
         }
 
-        // Guard against a policy ID pasted under the wrong patient URL.
-        if (data.patient_id !== params.id) {
-          throw new Error("Insurance policy not found for this patient");
+        // Guard against an authorization ID pasted under the wrong policy URL.
+        if (data.insurance_policy_id !== params.policyId) {
+          throw new Error(
+            "Prior authorization not found for this insurance policy",
+          );
         }
 
-        setPolicy(data);
+        setAuthorization(data);
       } catch (err) {
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load insurance policy",
+            : "Unable to load prior authorization",
         );
       } finally {
         setLoading(false);
       }
     }
 
-    if (params.policyId) {
-      loadPolicy();
+    if (params.authorizationId) {
+      loadAuthorization();
     }
-  }, [params.id, params.policyId, router]);
+  }, [params.authorizationId, params.policyId, router]);
 
-  async function updatePolicy(updatedPolicy: InsurancePolicy) {
+  async function updateAuthorization(updated: PriorAuthorization) {
     setMessage("");
     setError("");
 
     const response = await apiFetch(
-      `/api/insurance-policies/${params.policyId}`,
+      `/api/prior-authorizations/${params.authorizationId}`,
       {
         method: "PUT",
-        body: JSON.stringify(updatedPolicy),
+        body: JSON.stringify(updated),
       },
     );
 
@@ -81,16 +91,16 @@ export default function InsurancePolicyPage() {
     if (!response.ok) {
       throw new Error(
         data.error ||
-          `Unable to update insurance policy (${response.status})`,
+          `Unable to update prior authorization (${response.status})`,
       );
     }
 
-    setPolicy(data);
-    setMessage("Insurance policy updated successfully.");
+    setAuthorization(data);
+    setMessage("Prior authorization updated successfully.");
   }
 
   async function toggleStatus() {
-    if (!policy) {
+    if (!authorization) {
       return;
     }
 
@@ -98,11 +108,11 @@ export default function InsurancePolicyPage() {
     setError("");
 
     const response = await apiFetch(
-      `/api/insurance-policies/${params.policyId}/status`,
+      `/api/prior-authorizations/${params.authorizationId}/status`,
       {
         method: "PATCH",
         body: JSON.stringify({
-          is_active: !policy.is_active,
+          is_active: !authorization.is_active,
         }),
       },
     );
@@ -110,44 +120,43 @@ export default function InsurancePolicyPage() {
     const data = await response.json();
 
     if (!response.ok) {
-      setError(data.error || "Unable to update insurance policy status");
+      setError(
+        data.error || "Unable to update prior authorization status",
+      );
       return;
     }
 
-    setPolicy({
-      ...policy,
+    setAuthorization({
+      ...authorization,
       is_active: data.is_active,
     });
 
-    // Disabling the policy also disables its prior authorizations.
-    setAuthorizationsRefreshKey((current) => current + 1);
-
-    const cascaded = data.prior_authorizations_disabled ?? 0;
-
     setMessage(
       data.is_active
-        ? "Insurance policy enabled. Its prior authorizations stay disabled until re-enabled individually."
-        : cascaded > 0
-          ? `Insurance policy disabled. ${cascaded} prior authorization${cascaded === 1 ? " was" : "s were"} also disabled.`
-          : "Insurance policy disabled.",
+        ? "Prior authorization enabled."
+        : "Prior authorization disabled.",
     );
   }
+
+  const warnings = authorization
+    ? priorAuthorizationWarnings(authorization)
+    : [];
 
   return (
     <main className="min-h-screen bg-slate-100">
       <header className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link
-            href={`/patients/${params.id}/billing`}
+            href={policyPath}
             className="text-sm font-medium text-slate-600"
           >
-            ← Back to Billing
+            ← Back to Insurance Policy
           </Link>
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
-        {loading && <p>Loading insurance policy...</p>}
+        {loading && <p>Loading prior authorization...</p>}
 
         {error && (
           <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">
@@ -155,25 +164,33 @@ export default function InsurancePolicyPage() {
           </div>
         )}
 
-        {policy && (
+        {authorization && (
           <>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">
-                  {policy.payer_name}
+                  Prior Authorization {authorization.authorization_code}
                 </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  {priorityLabel(policy.priority)} insurance ·{" "}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                   <span
                     className={
-                      policy.is_active
+                      authorization.is_active
                         ? "font-medium text-green-700"
                         : "font-medium text-slate-600"
                     }
                   >
-                    {policy.is_active ? "Active" : "Disabled"}
+                    {authorization.is_active ? "Active" : "Disabled"}
                   </span>
+
+                  {warnings.map((warning) => (
+                    <span
+                      key={warning}
+                      className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+                    >
+                      {warning}
+                    </span>
+                  ))}
                 </p>
               </div>
 
@@ -182,7 +199,9 @@ export default function InsurancePolicyPage() {
                 onClick={toggleStatus}
                 className="rounded-lg border bg-white px-4 py-2 text-sm font-medium"
               >
-                {policy.is_active ? "Disable Policy" : "Enable Policy"}
+                {authorization.is_active
+                  ? "Disable Authorization"
+                  : "Enable Authorization"}
               </button>
             </div>
 
@@ -193,20 +212,13 @@ export default function InsurancePolicyPage() {
             )}
 
             <div className="mt-6">
-              <InsurancePolicyForm
-                key={policy.id}
-                initialPolicy={policy}
+              <PriorAuthorizationForm
+                key={authorization.id}
+                initialAuthorization={authorization}
                 submitLabel="Save Changes"
-                onSubmit={updatePolicy}
+                onSubmit={updateAuthorization}
               />
             </div>
-
-            <PriorAuthorizationsSection
-              patientId={params.id}
-              policyId={params.policyId}
-              policyActive={policy.is_active}
-              refreshKey={authorizationsRefreshKey}
-            />
           </>
         )}
       </div>

@@ -14,6 +14,7 @@ import (
 	"ehr-backend/internal/patients"
 	"ehr-backend/internal/payers"
 	"ehr-backend/internal/roles"
+	"ehr-backend/internal/servicecodes"
 	"ehr-backend/internal/users"
 )
 
@@ -44,6 +45,13 @@ func main() {
 	roleHandler := roles.NewHandler(db)
 	payerHandler := payers.NewHandler(db)
 	billingHandler := billing.NewHandler(db)
+	serviceCodeHandler := servicecodes.NewHandler(db)
+
+	serviceCodeManagerRoles := []string{
+		"practice_administrator",
+		"practice_biller",
+		"clinical_administrator",
+	}
 
 	mux := http.NewServeMux()
 
@@ -219,6 +227,76 @@ func main() {
 		authHandler.RequireAnyRole(
 			billingHandler.SetPolicyActive,
 			"practice_biller",
+		),
+	)
+
+	// Prior Authorizations
+	mux.HandleFunc(
+		"GET /api/insurance-policies/{id}/prior-authorizations",
+		authHandler.RequireAuth(billingHandler.ListPriorAuthorizations),
+	)
+
+	mux.HandleFunc(
+		"POST /api/insurance-policies/{id}/prior-authorizations",
+		authHandler.RequireAnyRole(
+			billingHandler.CreatePriorAuthorization,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/prior-authorizations/{id}",
+		authHandler.RequireAuth(billingHandler.GetPriorAuthorization),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/prior-authorizations/{id}",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdatePriorAuthorization,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"PATCH /api/prior-authorizations/{id}/status",
+		authHandler.RequireAnyRole(
+			billingHandler.SetPriorAuthorizationActive,
+			"practice_biller",
+		),
+	)
+
+	// Service Codes
+	mux.HandleFunc(
+		"GET /api/service-codes",
+		authHandler.RequireAuth(serviceCodeHandler.List),
+	)
+
+	mux.HandleFunc(
+		"POST /api/service-codes",
+		authHandler.RequireAnyRole(
+			serviceCodeHandler.Create,
+			serviceCodeManagerRoles...,
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/service-codes/{id}",
+		authHandler.RequireAuth(serviceCodeHandler.Get),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/service-codes/{id}",
+		authHandler.RequireAnyRole(
+			serviceCodeHandler.Update,
+			serviceCodeManagerRoles...,
+		),
+	)
+
+	mux.HandleFunc(
+		"PATCH /api/service-codes/{id}/status",
+		authHandler.RequireAnyRole(
+			serviceCodeHandler.SetActive,
+			serviceCodeManagerRoles...,
 		),
 	)
 

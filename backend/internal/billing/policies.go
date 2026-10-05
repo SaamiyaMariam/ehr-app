@@ -741,7 +741,14 @@ func (h *Handler) SetPolicyActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commandTag, err := h.db.Exec(
+	tx, err := h.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update insurance policy status")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	commandTag, err := tx.Exec(
 		r.Context(),
 		`
 		UPDATE insurance_policies
@@ -764,7 +771,39 @@ func (h *Handler) SetPolicyActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]bool{
-		"is_active": *req.IsActive,
+	// Disabling a policy disables its prior authorizations. Re-enabling the
+	// policy deliberately does NOT re-enable them; the biller does that.
+	var disabledAuthorizations int64
+
+	if !*req.IsActive {
+		commandTag, err := tx.Exec(
+			r.Context(),
+			`
+			UPDATE prior_authorizations
+			SET
+				is_active = FALSE,
+				updated_at = NOW()
+			WHERE insurance_policy_id = $1
+			  AND is_active
+			`,
+			id,
+		)
+
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not disable prior authorizations")
+			return
+		}
+
+		disabledAuthorizations = commandTag.RowsAffected()
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update insurance policy status")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"is_active":                     *req.IsActive,
+		"prior_authorizations_disabled": disabledAuthorizations,
 	})
 }
