@@ -90,6 +90,7 @@ export type ClaimSnapshot = {
     claim_number: string;
     amount_paid: string;
   }[];
+  adjudication?: Adjudication;
 };
 
 export type Claim = {
@@ -122,6 +123,56 @@ export type Claim = {
   comments?: ClaimComment[];
   documents?: ClaimDocument[];
   remittances?: ClaimRemittance[];
+  follow_up_claims?: ClaimRef[];
+};
+
+export type ClaimRef = { id: string; claim_number: string; sequence: string; status: string };
+
+export type AdjudicationLine = {
+  charge_id: string;
+  line_number: number;
+  date_of_service: string;
+  service_code: string;
+  billed: string;
+  previous_paid: string;
+  previous_allowed: string;
+  previous_adjustments: string;
+  transferred_to_patient: string;
+  eligible_amount: string;
+};
+
+export type Adjudication = {
+  previous_claim_id: string;
+  previous_claim_number: string;
+  previous_sequence: string;
+  previous_payer_name: string;
+  total_eligible: string;
+  lines: AdjudicationLine[];
+};
+
+export type NextPolicy = {
+  id: string;
+  payer_id: string;
+  payer_name: string;
+  member_id: string;
+  plan_name: string;
+  coverage_start: string;
+  coverage_end: string;
+};
+
+export type NextSequenceEval = {
+  previous_claim_id: string;
+  previous_claim_number: string;
+  previous_sequence: string;
+  next_sequence: string;
+  can_create: boolean;
+  reason: string;
+  needs_policy_choice: boolean;
+  policy: NextPolicy | null;
+  candidate_policies: NextPolicy[];
+  eligible_amount: string;
+  lines: { charge_id: string; claim_line_id: string; line_number: number; service_code: string; date_of_service: string; eligible: boolean; eligible_amount: string; reason: string }[];
+  existing_claims: ClaimRef[];
 };
 
 export type ClaimRemittance = {

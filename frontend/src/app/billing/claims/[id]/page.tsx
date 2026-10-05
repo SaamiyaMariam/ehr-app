@@ -7,6 +7,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import BillingNav from "@/components/billing-nav";
 import ClaimActions from "@/components/claim-actions";
 import ConfirmDialog from "@/components/confirm-dialog";
+import NextSequencePanel from "@/components/next-sequence-panel";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
 import {
@@ -308,6 +309,68 @@ export default function ClaimPage() {
                 {claim.diagnoses?.map((d) => `${d.letter}. ${d.icd10_code} ${d.description}`).join(" · ")}
               </p>
             </section>
+
+            {s.adjudication && (
+              <section className={cardClass} aria-labelledby="earlier-payer-heading" data-testid="earlier-payer">
+                <h2 id="earlier-payer-heading" className="text-lg font-semibold text-slate-900">
+                  Earlier payer decision
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Captured when this claim was created from{" "}
+                  {claim.previous_claim_id ? (
+                    <Link href={`/billing/claims/${claim.previous_claim_id}`} className="underline">{s.adjudication.previous_claim_number}</Link>
+                  ) : (
+                    s.adjudication.previous_claim_number
+                  )}{" "}
+                  ({s.adjudication.previous_payer_name}, <span className="capitalize">{s.adjudication.previous_sequence}</span>). Later changes to that claim do not alter it.
+                </p>
+                <div className="mt-3 overflow-x-auto rounded-lg border">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2">Service</th>
+                        <th className="px-3 py-2 text-right">Billed</th>
+                        <th className="px-3 py-2 text-right">Allowed</th>
+                        <th className="px-3 py-2 text-right">Paid</th>
+                        <th className="px-3 py-2 text-right">Adjusted</th>
+                        <th className="px-3 py-2 text-right">To patient</th>
+                        <th className="px-3 py-2 text-right">Eligible here</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.adjudication.lines.map((l) => (
+                        <tr key={l.charge_id} className="border-b last:border-0">
+                          <td className="px-3 py-2">{l.date_of_service} · {l.service_code}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">{money(l.billed)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">{l.previous_allowed ? money(l.previous_allowed) : "—"}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">{money(l.previous_paid)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">{money(l.previous_adjustments)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">{money(l.transferred_to_patient)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{money(l.eligible_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            <NextSequencePanel claim={claim} onMessage={setMessage} />
+
+            {(claim.follow_up_claims?.length ?? 0) > 0 && (
+              <section className={cardClass}>
+                <h2 className="text-lg font-semibold text-slate-900">Follow-on claims</h2>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {claim.follow_up_claims?.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center gap-2">
+                      <Link href={`/billing/claims/${c.id}`} className="font-medium underline">{c.claim_number}</Link>
+                      <span className="capitalize text-slate-500">{c.sequence}</span>
+                      <Badge tone={claimStatus(c.status).tone}>{claimStatus(c.status).label}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {(claim.remittances?.length ?? 0) > 0 && (
               <section aria-labelledby="remittances-heading">

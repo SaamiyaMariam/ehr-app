@@ -101,6 +101,9 @@ type Claim struct {
 
 	// Insurance remittances posted against this claim's lines.
 	Remittances []ClaimRemittance `json:"remittances,omitempty"`
+
+	// Claims created from this one for the next payer (secondary, ...).
+	FollowUpClaims []ClaimRef `json:"follow_up_claims,omitempty"`
 }
 
 var claimSequences = []string{"primary", "secondary", "tertiary", "quaternary"}
@@ -822,6 +825,11 @@ func (h *Handler) getClaim(ctx context.Context, q queryRower, id string) (Claim,
 		return c, err
 	}
 
+	c.FollowUpClaims, err = h.listFollowUpClaims(ctx, q, id)
+	if err != nil {
+		return c, err
+	}
+
 	c.History, err = h.loadClaimHistory(ctx, q, `WHERE h.claim_id = $1`, id)
 	if err != nil {
 		return c, err
@@ -1431,6 +1439,8 @@ func (h *Handler) UpdateClaim(w http.ResponseWriter, r *http.Request) {
 		if otherInsurance != nil {
 			snapshot.OtherInsurance = otherInsurance
 		}
+		// The earlier payer's decision is a historical record, never refreshed.
+		snapshot.Adjudication = old.Adjudication
 
 		// Re-snapshot the lines from their (locked) charges too.
 		var chargeIDs []string
@@ -1454,6 +1464,13 @@ func (h *Handler) UpdateClaim(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "could not refresh claim data")
 			return
+		}
+
+		// A charge's prior authorization belongs to its primary policy.
+		if sequence != "primary" {
+			for i := range charges {
+				charges[i].PriorAuthorizationID, charges[i].PriorAuthorizationCode = "", ""
+			}
 		}
 
 		diagnoses, lines, message := assignClaimDiagnoses(charges)
@@ -1610,10 +1627,15 @@ func (h *Handler) AddClaimComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, updated)
 }
 
-// releaseClaimLines makes a voided claim's services billable again.
-func releaseClaimLines(ctx context.Context, tx pgx.Tx, claimID string) error {
-	_, err := tx.Exec(ctx, `UPDATE claim_lines SET is_current = FALSE WHERE claim_id = $1`, claimID)
-	return err
+// releaseClaimLines makes a voided claim's services billable again. When the
+// claim followed an earlier payer's claim, that claim is re-evaluated: its
+// remainder is no longer forwarded.
+func releaseClaimLines(ctx context.Context, tx pgx.Tx, claimID, userID string) error {
+	if _, err := tx.Exec(ctx, `UPDATE claim_lines SET is_current = FALSE WHERE claim_id = $1`, claimID); err != nil {
+		return err
+	}
+
+	return refreshPreviousClaim(ctx, tx, claimID, userID)
 }
 
 // CancelClaim voids a claim that was never submitted.
@@ -1679,7 +1701,7 @@ func (h *Handler) CancelClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := releaseClaimLines(r.Context(), tx, id); err != nil {
+	if err := releaseClaimLines(r.Context(), tx, id, currentUserID(r)); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not cancel claim")
 		return
 	}

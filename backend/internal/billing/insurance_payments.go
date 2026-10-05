@@ -410,6 +410,8 @@ type remittanceTarget struct {
 	ChargeStatus string
 	IsCurrent    bool
 	LineTotal    int64
+	// LaterClaim is a later-sequence claim already billing the same service.
+	LaterClaim string
 }
 
 // checkRemittanceTargets enforces object-level integrity: every line must
@@ -431,6 +433,10 @@ func checkRemittanceTargets(lines []parsedLine, targets map[string]remittanceTar
 
 		if !t.IsCurrent || t.ChargeStatus != "active" {
 			return fmt.Sprintf("claim %s has a service line that is no longer billable", t.ClaimNumber)
+		}
+
+		if t.LaterClaim != "" {
+			return fmt.Sprintf("this service was already forwarded to claim %s; cancel that claim before posting more to this payer", t.LaterClaim)
 		}
 
 		if !validEnum(t.ClaimStatus, postableClaimStatuses...) {
@@ -553,7 +559,14 @@ func loadRemittanceTargets(ctx context.Context, tx pgx.Tx, lineIDs []string) (ma
 		ctx,
 		`
 		SELECT cl.id, cl.claim_id, cl.charge_id, cl.patient_id, cl.line_total::text, cl.is_current, cl.sequence,
-			cm.payer_id, cm.status, cm.claim_number, c.status
+			cm.payer_id, cm.status, cm.claim_number, c.status,
+			COALESCE((
+				SELECT cm2.claim_number FROM claim_lines l2
+				JOIN claims cm2 ON cm2.id = l2.claim_id
+				WHERE l2.charge_id = cl.charge_id AND l2.is_current AND cm2.status <> 'voided'
+				  AND array_position(`+sequenceRankSQL+`, l2.sequence::text) > array_position(`+sequenceRankSQL+`, cl.sequence::text)
+				LIMIT 1
+			), '')
 		FROM claim_lines cl
 		JOIN claims cm ON cm.id = cl.claim_id
 		JOIN billing_charges c ON c.id = cl.charge_id
@@ -574,7 +587,7 @@ func loadRemittanceTargets(ctx context.Context, tx pgx.Tx, lineIDs []string) (ma
 
 		if err := rows.Scan(
 			&t.LineID, &t.ClaimID, &t.ChargeID, &t.PatientID, &total, &t.IsCurrent, &t.Sequence,
-			&t.PayerID, &t.ClaimStatus, &t.ClaimNumber, &t.ChargeStatus,
+			&t.PayerID, &t.ClaimStatus, &t.ClaimNumber, &t.ChargeStatus, &t.LaterClaim,
 		); err != nil {
 			return nil, err
 		}

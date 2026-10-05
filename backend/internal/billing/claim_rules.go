@@ -24,6 +24,10 @@ type ClaimSnapshot struct {
 
 	// Other coverage (e.g. the primary payer on a secondary claim).
 	OtherInsurance []SnapshotOtherInsurance `json:"other_insurance"`
+
+	// What the earlier payer decided, frozen when a secondary / tertiary /
+	// quaternary claim was created. Nil on primary claims.
+	Adjudication *SnapshotAdjudication `json:"adjudication,omitempty"`
 }
 
 type SnapshotAddress struct {
@@ -222,6 +226,11 @@ func validateClaim(
 	}
 	if !in.SignatureOnFile {
 		warnf("Signature on file is not indicated for this policy.")
+	}
+
+	// Secondary and later claims must carry the earlier payer's adjudication.
+	if s.Policy.Priority != "" && s.Policy.Priority != "primary" && len(s.OtherInsurance) == 0 {
+		errf("This %s claim has no earlier payer information (create it from the earlier claim).", s.Policy.Priority)
 	}
 
 	// Payer

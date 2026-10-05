@@ -114,7 +114,7 @@ func (h *Handler) completeSubmission(ctx context.Context, tx pgx.Tx, sc submissi
 	}
 
 	if target == "voided" {
-		if err := releaseClaimLines(ctx, tx, sc.claimID); err != nil {
+		if err := releaseClaimLines(ctx, tx, sc.claimID, sc.userID); err != nil {
 			return "", err
 		}
 	}
@@ -501,6 +501,21 @@ func (h *Handler) StartResubmission(w http.ResponseWriter, r *http.Request) {
 
 		if !previouslySubmitted && req.ResubmissionType != "new" {
 			return badRequest("this claim was never sent, so it can only be corrected as a new claim")
+		}
+
+		// A claim that was followed by a claim to the next payer cannot be
+		// reopened: the follow-on claim snapshots this claim's adjudication.
+		var followUp *string
+		if err := tx.QueryRow(
+			r.Context(),
+			`SELECT claim_number FROM claims WHERE previous_claim_id = $1 AND status <> 'voided' LIMIT 1`,
+			id,
+		).Scan(&followUp); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+
+		if followUp != nil {
+			return conflict("claim " + *followUp + " was created from this claim for the next payer; cancel it before reopening this claim")
 		}
 
 		// Editing a claim rewrites its lines, which posted remittances point

@@ -210,6 +210,10 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	rt.roles("POST /api/claims/{id}/cancel", billingHandler.CancelClaim, billerRoles...)
 	rt.authed("GET /api/patients/{id}/claimable-charges", billingHandler.ListClaimableCharges)
 
+	// Secondary / tertiary / quaternary claims (explicit biller action)
+	rt.authed("GET /api/claims/{id}/next-sequence", billingHandler.GetNextSequence)
+	rt.roles("POST /api/claims/{id}/next-sequence", billingHandler.CreateNextSequenceClaim, billerRoles...)
+
 	// CMS-1500 / superbills
 	rt.roles("POST /api/claims/{id}/cms1500", billingHandler.GenerateCMS1500, billerRoles...)
 	rt.authed("GET /api/claims/{id}/cms1500", billingHandler.DownloadCMS1500)
