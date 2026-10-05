@@ -337,6 +337,12 @@ func loadPriorAuthorizationInfo(ctx context.Context, q queryRower, id, patientID
 const chargeDisplayStatusSQL = `
 	CASE
 		WHEN c.status = 'voided' THEN 'voided'
+		WHEN EXISTS (
+			SELECT 1 FROM claim_lines cl
+			JOIN claims cm ON cm.id = cl.claim_id
+			WHERE cl.charge_id = c.id AND cl.is_current
+			  AND cm.status NOT IN ('paid', 'voided')
+		) THEN 'on_claim'
 		WHEN b.total_balance = 0 THEN 'closed'
 		ELSE 'open'
 	END
@@ -477,9 +483,15 @@ func chargeLockReason(ctx context.Context, q queryRower, chargeID string) (strin
 	return "", nil
 }
 
-// chargeOnClaimSQL is TRUE when charge $1 is on a current claim.
-// (Claims are introduced by the claims module.)
-const chargeOnClaimSQL = `FALSE`
+// chargeOnClaimSQL is TRUE when charge $1 is on a current, non-voided
+// claim (including paid claims, which are historical records).
+const chargeOnClaimSQL = `
+	EXISTS (
+		SELECT 1 FROM claim_lines cl
+		JOIN claims cm ON cm.id = cl.claim_id
+		WHERE cl.charge_id = $1 AND cl.is_current AND cm.status <> 'voided'
+	)
+`
 
 // chargeFinancialActivitySQL is TRUE when any active money movement
 // references charge $1. (Payments are introduced by later modules.)

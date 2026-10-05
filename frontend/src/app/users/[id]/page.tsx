@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import ClinicianBillingProfile from "@/components/clinician-billing-profile";
 import RoleSelector from "@/components/role-selector";
 import UserForm from "@/components/user-form";
 import { apiFetch } from "@/lib/api";
@@ -182,6 +183,8 @@ export default function UserPage() {
                 onSubmit={updateUser}
               />
             </div>
+
+            <ClinicianBillingProfile userId={params.id} />
           </>
         )}
       </div>

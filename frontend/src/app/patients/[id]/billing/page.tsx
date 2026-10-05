@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 import CashRatesSection from "@/components/cash-rates-section";
 import DiagnosesSection from "@/components/diagnoses-section";
+import PatientClaimsSection from "@/components/patient-claims-section";
 import TransactionsSection from "@/components/transactions-section";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
@@ -376,6 +377,8 @@ export default function PatientBillingPage() {
             </section>
 
             <TransactionsSection patientId={params.id} />
+
+            <PatientClaimsSection patientId={params.id} />
 
             <DiagnosesSection patientId={params.id} />
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import PracticeProfileForm from "@/components/practice-profile-form";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
 import {
@@ -167,6 +168,8 @@ export default function BillingSettingsPage() {
             </div>
           </form>
         )}
+
+        <PracticeProfileForm />
       </div>
     </main>
   );

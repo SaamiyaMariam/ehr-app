@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/billing", label: "Billing" },
+  { href: "/billing/claims", label: "Claims" },
 ];
 
 // Shared header for practice-wide billing pages.

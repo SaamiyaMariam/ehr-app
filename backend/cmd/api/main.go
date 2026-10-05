@@ -443,6 +443,68 @@ func main() {
 		authHandler.RequireAuth(billingHandler.SearchTransactions),
 	)
 
+	// Billing profiles (claim provider data)
+	mux.HandleFunc(
+		"GET /api/billing/practice-profile",
+		authHandler.RequireAuth(billingHandler.GetPracticeProfile),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/billing/practice-profile",
+		authHandler.RequireAnyRole(billingHandler.UpdatePracticeProfile, billingAdminRoles...),
+	)
+
+	mux.HandleFunc(
+		"GET /api/users/{id}/billing-profile",
+		authHandler.RequireAuth(billingHandler.GetClinicianProfile),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/users/{id}/billing-profile",
+		authHandler.RequireAnyRole(billingHandler.UpdateClinicianProfile, billingAdminRoles...),
+	)
+
+	// Claims
+	mux.HandleFunc(
+		"GET /api/claims",
+		authHandler.RequireAuth(billingHandler.ListClaims),
+	)
+
+	mux.HandleFunc(
+		"POST /api/claims",
+		authHandler.RequireAnyRole(billingHandler.CreateClaim, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/claims/{id}",
+		authHandler.RequireAuth(billingHandler.GetClaim),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/claims/{id}",
+		authHandler.RequireAnyRole(billingHandler.UpdateClaim, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"POST /api/claims/{id}/validate",
+		authHandler.RequireAnyRole(billingHandler.ValidateClaim, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"POST /api/claims/{id}/comments",
+		authHandler.RequireAnyRole(billingHandler.AddClaimComment, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"POST /api/claims/{id}/cancel",
+		authHandler.RequireAnyRole(billingHandler.CancelClaim, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/claimable-charges",
+		authHandler.RequireAuth(billingHandler.ListClaimableCharges),
+	)
+
 	log.Println("EHR API running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {
