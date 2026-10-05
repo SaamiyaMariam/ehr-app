@@ -494,8 +494,14 @@ const chargeOnClaimSQL = `
 `
 
 // chargeFinancialActivitySQL is TRUE when any active money movement
-// references charge $1. (Payments are introduced by later modules.)
-const chargeFinancialActivitySQL = `FALSE`
+// references charge $1.
+const chargeFinancialActivitySQL = `
+	EXISTS (
+		SELECT 1 FROM patient_payment_allocations a
+		JOIN patient_payments p ON p.id = a.payment_id
+		WHERE a.charge_id = $1 AND a.status = 'active' AND p.status = 'posted'
+	)
+`
 
 // pricedCharge is the outcome of pricing + validation, ready to persist.
 type pricedCharge struct {

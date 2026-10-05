@@ -566,6 +566,43 @@ func main() {
 		authHandler.RequireAuth(billingHandler.GetIntegrations),
 	)
 
+	// Patient payments
+	mux.HandleFunc(
+		"GET /api/patients/{id}/payments",
+		authHandler.RequireAuth(billingHandler.ListPatientPayments),
+	)
+
+	mux.HandleFunc(
+		"POST /api/patients/{id}/payments",
+		authHandler.RequireAnyRole(billingHandler.CreatePatientPayment, "practice_biller"),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patient-payments",
+		authHandler.RequireAuth(billingHandler.SearchPatientPayments),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patient-payments/{id}",
+		authHandler.RequireAuth(billingHandler.GetPatientPayment),
+	)
+
+	for path, handler := range map[string]http.HandlerFunc{
+		"/allocations": billingHandler.AllocatePatientPayment,
+		"/void":        billingHandler.VoidPatientPayment,
+		"/refunds":     billingHandler.RefundPatientPayment,
+	} {
+		mux.HandleFunc(
+			"POST /api/patient-payments/{id}"+path,
+			authHandler.RequireAnyRole(handler, "practice_biller"),
+		)
+	}
+
+	mux.HandleFunc(
+		"POST /api/patient-payment-allocations/{id}/void",
+		authHandler.RequireAnyRole(billingHandler.VoidPatientPaymentAllocation, "practice_biller"),
+	)
+
 	log.Println("EHR API running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {
