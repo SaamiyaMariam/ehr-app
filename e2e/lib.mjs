@@ -272,3 +272,45 @@ export function assert(condition, message) {
 export async function expectText(page, text, options = {}) {
   await page.getByText(text, { exact: false }).first().waitFor({ timeout: options.timeout ?? 10000 });
 }
+
+// ---------------------------------------------------------------------
+// Patient balance cards (Module 10)
+// ---------------------------------------------------------------------
+
+async function cardsLoaded(page) {
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="card-total-outstanding"]');
+    return el && !el.textContent.includes("…");
+  });
+}
+
+export async function readCards(page) {
+  const read = async (id) => (await page.getByTestId(id).locator("div").nth(1).innerText()).trim();
+
+  return {
+    patient: await read("card-patient-balance"),
+    insurance: await read("card-insurance-balance"),
+    total: await read("card-total-outstanding"),
+    credit: await read("card-patient-credit"),
+  };
+}
+
+// Opens the patient billing page, reads the cards, reloads and checks the
+// values are identical, then compares with what was expected.
+export async function assertCards(page, patientId, expected, label) {
+  await page.goto(`${BASE}/patients/${patientId}/billing`);
+  await cardsLoaded(page);
+  const first = await readCards(page);
+
+  await page.reload();
+  await cardsLoaded(page);
+  const second = await readCards(page);
+
+  assert(JSON.stringify(first) === JSON.stringify(second), `${label}: cards changed after refresh ${JSON.stringify(first)} vs ${JSON.stringify(second)}`);
+
+  for (const [key, value] of Object.entries(expected)) {
+    assert(first[key] === value, `${label}: ${key} card is ${first[key]}, expected ${value}`);
+  }
+
+  return first;
+}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import ChargeForm from "@/components/charge-form";
+import ChargeLedger from "@/components/charge-ledger";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { apiFetch } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
@@ -156,6 +157,13 @@ export default function ChargePage() {
                 </p>
               )}
             </section>
+
+            <ChargeLedger
+              patientId={params.id}
+              chargeId={params.chargeId}
+              voided={charge.status === "voided"}
+              onCharge={setCharge}
+            />
 
             {charge.status !== "voided" && (
               <ChargeForm

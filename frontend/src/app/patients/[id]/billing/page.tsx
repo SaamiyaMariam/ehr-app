@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import BalanceSummary from "@/components/balance-summary";
 import CashRatesSection from "@/components/cash-rates-section";
 import DiagnosesSection from "@/components/diagnoses-section";
 import PatientClaimsSection from "@/components/patient-claims-section";
@@ -231,6 +232,8 @@ export default function PatientBillingPage() {
               </nav>
             </div>
 
+            <BalanceSummary patientId={params.id} />
+
             <form
               onSubmit={saveSettings}
               className="rounded-xl border bg-white p-6"
@@ -385,7 +388,9 @@ export default function PatientBillingPage() {
 
             <TransactionsSection patientId={params.id} />
 
-            <PaymentsSection patientId={params.id} />
+            <div id="patient-payments" className="scroll-mt-4">
+              <PaymentsSection patientId={params.id} />
+            </div>
 
             <PatientClaimsSection patientId={params.id} />
 

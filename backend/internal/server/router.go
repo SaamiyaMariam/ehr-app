@@ -258,6 +258,11 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	rt.roles("POST /api/insurance-payments/{id}/void", billingHandler.VoidInsurancePayment, billerRoles...)
 	rt.authed("GET /api/billing/outstanding-insurance", billingHandler.SearchOutstandingInsurance)
 
+	// Balance engine (read-only views over the ledger)
+	rt.authed("GET /api/patients/{id}/billing-summary", billingHandler.GetPatientBillingSummary)
+	rt.authed("GET /api/patients/{id}/ledger", billingHandler.GetPatientLedger)
+	rt.authed("GET /api/charges/{id}/ledger", billingHandler.GetChargeLedger)
+
 	rt.roles("POST /api/charges/{id}/adjustments", billingHandler.CreateAdjustment, billerRoles...)
 	rt.roles("POST /api/charges/{id}/transfers", billingHandler.CreateTransfer, billerRoles...)
 	rt.roles("POST /api/billing-adjustments/{id}/void", billingHandler.VoidAdjustment, billerRoles...)

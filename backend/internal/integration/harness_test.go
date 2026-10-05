@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ehr-backend/internal/server"
@@ -292,10 +294,20 @@ func (f *fixture) newPatient() string {
 
 func (f *fixture) newPolicy(patientID, payerID, priority string) string {
 	f.t.Helper()
+	return f.newPolicyWith(patientID, payerID, priority, nil)
+}
 
-	return f.biller.post(f.t, "/api/patients/"+patientID+"/insurance-policies", map[string]any{
+func (f *fixture) newPolicyWith(patientID, payerID, priority string, extra map[string]any) string {
+	f.t.Helper()
+
+	body := map[string]any{
 		"payer_id": payerID, "priority": priority, "member_id": unique("MEM"), "coverage_start": "2020-01-01",
-	}).mustStatus(f.t, http.StatusCreated).Str("id")
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+
+	return f.biller.post(f.t, "/api/patients/"+patientID+"/insurance-policies", body).mustStatus(f.t, http.StatusCreated).Str("id")
 }
 
 // insuranceCharge creates a billable service for the fixture patient on the
@@ -381,6 +393,74 @@ func (f *fixture) assertBalances(chargeID, wantPatient, wantInsurance string) {
 	p, i := f.balances(chargeID)
 	if p != wantPatient || i != wantInsurance {
 		f.t.Fatalf("balances: patient %s insurance %s, want patient %s insurance %s", p, i, wantPatient, wantInsurance)
+	}
+}
+
+// queryer is satisfied by the pool and by pgx transactions.
+type queryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+type violation struct{ Check, Object, Detail string }
+
+// reconcileScript is scripts/check_billing_reconciliation.sql, the same read-only
+// file operators run with psql.
+func reconcileScript(t testing.TB) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for {
+		raw, err := os.ReadFile(filepath.Join(dir, "scripts", "check_billing_reconciliation.sql"))
+		if err == nil {
+			return string(raw)
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("scripts/check_billing_reconciliation.sql not found")
+		}
+		dir = parent
+	}
+}
+
+// reconcile runs the reconciliation script and returns its violations.
+func reconcile(t testing.TB, q queryer) []violation {
+	t.Helper()
+
+	rows, err := q.Query(context.Background(), reconcileScript(t))
+	if err != nil {
+		t.Fatalf("reconciliation script failed: %v", err)
+	}
+	defer rows.Close()
+
+	var found []violation
+
+	for rows.Next() {
+		var v violation
+		if err := rows.Scan(&v.Check, &v.Object, &v.Detail); err != nil {
+			t.Fatal(err)
+		}
+		found = append(found, v)
+	}
+
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	return found
+}
+
+// assertReconciled fails when any financial invariant is broken anywhere in
+// the test schema (every test shares it, so a leak fails fast).
+func assertReconciled(t testing.TB) {
+	t.Helper()
+
+	if found := reconcile(t, pool); len(found) > 0 {
+		t.Fatalf("billing reconciliation found %d violation(s), first: %+v", len(found), found[0])
 	}
 }
 
