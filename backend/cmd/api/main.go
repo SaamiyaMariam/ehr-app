@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"ehr-backend/internal/auth"
+	"ehr-backend/internal/billing"
 	"ehr-backend/internal/database"
 	"ehr-backend/internal/patients"
 	"ehr-backend/internal/payers"
@@ -42,6 +43,7 @@ func main() {
 	userHandler := users.NewHandler(db)
 	roleHandler := roles.NewHandler(db)
 	payerHandler := payers.NewHandler(db)
+	billingHandler := billing.NewHandler(db)
 
 	mux := http.NewServeMux()
 
@@ -170,6 +172,54 @@ func main() {
 	mux.HandleFunc(
 		"GET /api/clinicians",
 		authHandler.RequireAuth(userHandler.ListClinicians),
+	)
+
+	// Patient Billing
+	mux.HandleFunc(
+		"GET /api/patients/{id}/billing-settings",
+		authHandler.RequireAuth(billingHandler.GetSettings),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/patients/{id}/billing-settings",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdateSettings,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/patients/{id}/insurance-policies",
+		authHandler.RequireAuth(billingHandler.ListPolicies),
+	)
+
+	mux.HandleFunc(
+		"POST /api/patients/{id}/insurance-policies",
+		authHandler.RequireAnyRole(
+			billingHandler.CreatePolicy,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"GET /api/insurance-policies/{id}",
+		authHandler.RequireAuth(billingHandler.GetPolicy),
+	)
+
+	mux.HandleFunc(
+		"PUT /api/insurance-policies/{id}",
+		authHandler.RequireAnyRole(
+			billingHandler.UpdatePolicy,
+			"practice_biller",
+		),
+	)
+
+	mux.HandleFunc(
+		"PATCH /api/insurance-policies/{id}/status",
+		authHandler.RequireAnyRole(
+			billingHandler.SetPolicyActive,
+			"practice_biller",
+		),
 	)
 
 	log.Println("EHR API running on http://localhost:8080")
