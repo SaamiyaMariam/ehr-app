@@ -9,6 +9,7 @@ const links = [
   { href: "/billing/claim-history", label: "Claim History" },
   { href: "/billing/payments", label: "Payments" },
   { href: "/billing/insurance-payments", label: "Insurance Payments" },
+  { href: "/billing/statements", label: "Statements" },
 ];
 
 // Shared header for practice-wide billing pages.

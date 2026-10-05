@@ -333,9 +333,14 @@ func (f *fixture) chargeFor(patientID, policyID string, units int, patientShare 
 
 func (f *fixture) directCharge(units int) string {
 	f.t.Helper()
+	return f.directChargeFor(f.patientID, f.dos, units)
+}
 
-	return f.biller.post(f.t, "/api/patients/"+f.patientID+"/charges", map[string]any{
-		"clinician_id": f.clinician.userID, "service_code_id": f.serviceID, "date_of_service": f.dos,
+func (f *fixture) directChargeFor(patientID, dos string, units int) string {
+	f.t.Helper()
+
+	return f.biller.post(f.t, "/api/patients/"+patientID+"/charges", map[string]any{
+		"clinician_id": f.clinician.userID, "service_code_id": f.serviceID, "date_of_service": dos,
 		"units": units, "place_of_service": "11", "billing_method": "direct",
 	}).mustStatus(f.t, http.StatusCreated).Str("id")
 }

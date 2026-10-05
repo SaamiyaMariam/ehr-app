@@ -258,6 +258,18 @@ func New(db *pgxpool.Pool, jwtSecret string) (http.Handler, *Router) {
 	rt.roles("POST /api/insurance-payments/{id}/void", billingHandler.VoidInsurancePayment, billerRoles...)
 	rt.authed("GET /api/billing/outstanding-insurance", billingHandler.SearchOutstandingInsurance)
 
+	// Patient statements (immutable snapshots + PDFs)
+	rt.authed("GET /api/patients/{id}/statements", billingHandler.ListPatientStatements)
+	rt.roles("POST /api/patients/{id}/statements", billingHandler.CreatePatientStatement, billerRoles...)
+	rt.authed("GET /api/patients/{patientId}/statements/{id}", billingHandler.GetStatement)
+	rt.authed("GET /api/patients/{patientId}/statements/{id}/pdf", billingHandler.DownloadStatementPDF)
+	rt.authed("GET /api/statements/{id}", billingHandler.GetStatement)
+	rt.authed("GET /api/statements/{id}/pdf", billingHandler.DownloadStatementPDF)
+	rt.authed("GET /api/billing/statements", billingHandler.SearchStatements)
+	rt.authed("GET /api/billing/statement-candidates", billingHandler.GetStatementCandidates)
+	rt.roles("POST /api/billing/statements/batch", billingHandler.CreateStatementBatch, billerRoles...)
+	rt.authed("GET /api/billing/statements/combined-pdf", billingHandler.DownloadCombinedStatementsPDF)
+
 	// Balance engine (read-only views over the ledger)
 	rt.authed("GET /api/patients/{id}/billing-summary", billingHandler.GetPatientBillingSummary)
 	rt.authed("GET /api/patients/{id}/ledger", billingHandler.GetPatientLedger)

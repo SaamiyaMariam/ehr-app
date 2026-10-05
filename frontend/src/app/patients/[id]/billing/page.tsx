@@ -226,6 +226,9 @@ export default function PatientBillingPage() {
               </p>
 
               <nav aria-label="Patient billing" className="mt-3 flex flex-wrap gap-4 text-sm">
+                <Link href={`/patients/${params.id}/billing/statements`} className="font-medium underline">
+                  Statements
+                </Link>
                 <Link href={`/patients/${params.id}/billing/superbills`} className="font-medium underline">
                   Superbills
                 </Link>
