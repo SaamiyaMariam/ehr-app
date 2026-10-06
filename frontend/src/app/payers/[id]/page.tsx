@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import PayerForm from "@/components/payer-form";
+import PayerRatesSection from "@/components/payer-rates-section";
 import { apiFetch } from "@/lib/api";
 import { Payer } from "@/types/payer";
 
@@ -146,6 +147,8 @@ export default function PayerPage() {
                 onSubmit={updatePayer}
               />
             </div>
+
+            <PayerRatesSection payerId={params.id} />
           </>
         )}
       </div>

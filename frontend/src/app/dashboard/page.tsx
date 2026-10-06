@@ -17,6 +17,7 @@ type User = {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [roleCount, setRoleCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -39,7 +40,18 @@ export default function DashboardPage() {
         return;
       }
 
-      setUser(await response.json());
+      const me: User = await response.json();
+      setUser(me);
+
+      // Accounts created by sign-up have no role until an administrator
+      // assigns one; the API then refuses all practice data.
+      const rolesResponse = await fetch(`/api/users/${me.id}/roles`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (rolesResponse.ok) {
+        setRoleCount((await rolesResponse.json()).length);
+      }
     }
 
     loadUser();
@@ -88,7 +100,26 @@ export default function DashboardPage() {
           Welcome, {user.first_name}.
         </p>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        {roleCount === 0 && (
+          <div role="status" className="mt-6 rounded-lg bg-amber-50 p-4 text-sm text-amber-900" data-testid="no-role-notice">
+            Your account has no role yet, so practice data is hidden. Ask a practice
+            administrator to assign you a role.
+          </div>
+        )}
+
+        <div className={`mt-8 grid gap-4 md:grid-cols-3 ${roleCount === 0 ? "hidden" : ""}`}>
+          <Link
+            href="/billing"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Billing
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Billing transactions, claims, payments and reports.
+            </p>
+          </Link>
           <Link
             href="/patients"
             className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
@@ -123,6 +154,30 @@ export default function DashboardPage() {
 
             <p className="mt-2 text-sm text-slate-500">
               Add and manage payers.
+            </p>
+          </Link>
+          <Link
+            href="/settings/service-codes"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Service Codes
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Add and manage billing service codes.
+            </p>
+          </Link>
+          <Link
+            href="/settings/billing"
+            className="rounded-xl border bg-white p-6 transition hover:shadow-sm"
+          >
+            <h3 className="font-semibold text-slate-900">
+              Billing Settings
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Practice billing defaults and claim profile.
             </p>
           </Link>
         </div>

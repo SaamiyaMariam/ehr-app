@@ -106,14 +106,23 @@ export default function PatientPage() {
 
         {patient && (
           <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-900">
-                {patient.first_name} {patient.last_name}
-              </h1>
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">
+                  {patient.first_name} {patient.last_name}
+                </h1>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Patient record
-              </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Patient record
+                </p>
+              </div>
+
+              <Link
+                href={`/patients/${params.id}/billing`}
+                className="rounded-lg border bg-white px-4 py-2 text-sm font-medium"
+              >
+                Billing Settings
+              </Link>
             </div>
 
             {message && (

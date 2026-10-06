@@ -2,18 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"ehr-backend/internal/auth"
 	"ehr-backend/internal/database"
-	"ehr-backend/internal/patients"
-	"ehr-backend/internal/payers"
-	"ehr-backend/internal/roles"
-	"ehr-backend/internal/users"
+	"ehr-backend/internal/server"
 )
 
 func main() {
@@ -23,8 +18,8 @@ func main() {
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET is required")
+	if len(jwtSecret) < 32 || jwtSecret == "YOUR_RANDOM_SECRET" {
+		log.Fatal("JWT_SECRET is required and must be at least 32 characters (for example: openssl rand -hex 32)")
 	}
 
 	ctx := context.Background()
@@ -37,144 +32,20 @@ func main() {
 
 	log.Println("Connected to PostgreSQL")
 
-	authHandler := auth.NewHandler(db, jwtSecret)
-	patientHandler := patients.NewHandler(db)
-	userHandler := users.NewHandler(db)
-	roleHandler := roles.NewHandler(db)
-	payerHandler := payers.NewHandler(db)
+	handler, _ := server.New(db, jwtSecret)
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-
-		if err := db.Ping(ctx); err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"status":   "error",
-				"database": "unavailable",
-			})
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"status":   "ok",
-			"database": "connected",
-		})
-	})
-
-	// Auth
-	mux.HandleFunc("POST /api/auth/signup", authHandler.Signup)
-	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
-	mux.HandleFunc(
-		"GET /api/auth/me",
-		authHandler.RequireAuth(authHandler.Me),
-	)
-
-	// Patients
-	mux.HandleFunc(
-		"GET /api/patients",
-		authHandler.RequireAuth(patientHandler.List),
-	)
-	mux.HandleFunc(
-		"POST /api/patients",
-		authHandler.RequireAnyRole(
-			patientHandler.Create,
-			"clinician",
-			"practice_scheduler",
-		),
-	)
-	mux.HandleFunc(
-		"GET /api/patients/{id}",
-		authHandler.RequireAuth(patientHandler.Get),
-	)
-	mux.HandleFunc(
-		"PUT /api/patients/{id}",
-		authHandler.RequireAuth(patientHandler.Update),
-	)
-
-	// Users / Employees
-	mux.HandleFunc(
-		"GET /api/users",
-		authHandler.RequireAuth(userHandler.List),
-	)
-	mux.HandleFunc(
-		"POST /api/users",
-		authHandler.RequireAuth(userHandler.Create),
-	)
-	mux.HandleFunc(
-		"GET /api/users/{id}",
-		authHandler.RequireAuth(userHandler.Get),
-	)
-	mux.HandleFunc(
-		"PUT /api/users/{id}",
-		authHandler.RequireAuth(userHandler.Update),
-	)
-
-	// Roles
-	mux.HandleFunc(
-		"GET /api/roles",
-		authHandler.RequireAuth(roleHandler.List),
-	)
-
-	mux.HandleFunc(
-		"GET /api/users/{id}/roles",
-		authHandler.RequireAuth(roleHandler.GetUserRoles),
-	)
-
-	mux.HandleFunc(
-		"PUT /api/users/{id}/roles",
-		authHandler.RequireAuth(roleHandler.UpdateUserRoles),
-	)
-
-	// Payers
-	mux.HandleFunc(
-		"GET /api/payers",
-		authHandler.RequireAuth(payerHandler.List),
-	)
-
-	mux.HandleFunc(
-		"POST /api/payers",
-		authHandler.RequireAnyRole(
-			payerHandler.Create,
-			"practice_biller",
-		),
-	)
-
-	mux.HandleFunc(
-		"GET /api/payers/{id}",
-		authHandler.RequireAuth(payerHandler.Get),
-	)
-
-	mux.HandleFunc(
-		"PUT /api/payers/{id}",
-		authHandler.RequireAnyRole(
-			payerHandler.Update,
-			"practice_biller",
-		),
-	)
-
-	mux.HandleFunc(
-		"PATCH /api/payers/{id}/status",
-		authHandler.RequireAnyRole(
-			payerHandler.SetActive,
-			"practice_biller",
-		),
-	)
-
-	mux.HandleFunc(
-		"GET /api/clinicians",
-		authHandler.RequireAuth(userHandler.ListClinicians),
-	)
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      2 * time.Minute, // PDF / CSV generation
+		IdleTimeout:       2 * time.Minute,
+	}
 
 	log.Println("EHR API running on http://localhost:8080")
 
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -3,12 +3,31 @@ package roles
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
 	db *pgxpool.Pool
+}
+
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// uniqueStrings drops repeats, keeping first-seen order, so a role listed
+// twice is the same as listed once.
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+
+	for _, v := range values {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+
+	return out
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
@@ -113,12 +132,29 @@ func (h *Handler) UpdateUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Roles) > 20 {
+		writeError(w, http.StatusBadRequest, "too many roles")
+		return
+	}
+
+	if !uuidPattern.MatchString(userID) {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
 	tx, err := h.db.Begin(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not update roles")
 		return
 	}
 	defer tx.Rollback(r.Context())
+
+	// Serialise role changes so two administrators cannot demote each other
+	// at the same moment and leave the practice with none.
+	if _, err := tx.Exec(r.Context(), `SELECT pg_advisory_xact_lock(hashtext('user-role-changes'))`); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update roles")
+		return
+	}
 
 	var userExists bool
 
@@ -135,6 +171,8 @@ func (h *Handler) UpdateUserRoles(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user not found")
 		return
 	}
+
+	req.Roles = uniqueStrings(req.Roles)
 
 	if _, err := tx.Exec(
 		r.Context(),
@@ -168,6 +206,28 @@ func (h *Handler) UpdateUserRoles(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid role: "+roleKey)
 			return
 		}
+	}
+
+	// There must always be an active practice administrator, or nobody could
+	// assign roles again.
+	var admins int
+	if err := tx.QueryRow(
+		r.Context(),
+		`
+		SELECT COUNT(*)
+		FROM user_roles ur
+		JOIN roles ro ON ro.id = ur.role_id
+		JOIN users u ON u.id = ur.user_id
+		WHERE ro.key = 'practice_administrator' AND u.is_active
+		`,
+	).Scan(&admins); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update roles")
+		return
+	}
+
+	if admins == 0 {
+		writeError(w, http.StatusConflict, "at least one active practice administrator must remain")
+		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {

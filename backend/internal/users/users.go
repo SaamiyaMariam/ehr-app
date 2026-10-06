@@ -156,6 +156,11 @@ func cleanUser(user *User) {
 	user.Zip = strings.TrimSpace(user.Zip)
 	user.City = strings.TrimSpace(user.City)
 	user.State = strings.TrimSpace(user.State)
+
+	// A missing list must be stored as empty, not NULL.
+	if user.Languages == nil {
+		user.Languages = []string{}
+	}
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {

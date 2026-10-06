@@ -1,7 +1,11 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Payer } from "@/types/payer";
+import {
+  Payer,
+  insuranceTypeOptions,
+  payerBillingMethodOptions,
+} from "@/types/payer";
 
 type Props = {
   initialPayer: Payer;
@@ -88,6 +92,51 @@ export default function PayerForm({
             />
             In network
           </label>
+
+          <div>
+            <label htmlFor="payer-billing-method" className={labelClass}>
+              Billing method
+            </label>
+            <select
+              id="payer-billing-method"
+              className={inputClass}
+              value={payer.billing_method}
+              onChange={(e) =>
+                update(
+                  "billing_method",
+                  e.target.value as Payer["billing_method"],
+                )
+              }
+            >
+              {payerBillingMethodOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Overrides the practice default claim submission method for
+              this payer.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="payer-insurance-type" className={labelClass}>
+              Insurance type
+            </label>
+            <select
+              id="payer-insurance-type"
+              className={inputClass}
+              value={payer.insurance_type}
+              onChange={(e) => update("insurance_type", e.target.value)}
+            >
+              {insuranceTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 
