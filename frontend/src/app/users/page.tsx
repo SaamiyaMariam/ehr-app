@@ -45,13 +45,11 @@ export default function UsersPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="font-semibold">
-            EHR
-          </Link>
+    <main className="flex-1 bg-slate-100">
 
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-slate-900">Users</h1>
           <Link
             href="/users/new"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
@@ -59,12 +57,6 @@ export default function UsersPage() {
             Add User
           </Link>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Users
-        </h1>
 
         <p className="mt-1 text-sm text-slate-500">
           View and manage users.

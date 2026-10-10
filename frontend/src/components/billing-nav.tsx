@@ -15,16 +15,13 @@ const links = [
   { href: "/billing/reports/collections", label: "Collections" },
 ];
 
-// Shared header for practice-wide billing pages.
+// Navigation below the app header for practice-wide billing pages.
 export default function BillingNav() {
   const pathname = usePathname();
 
   return (
-    <header className="border-b bg-white">
+    <div className="border-b bg-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4">
-        <Link href="/dashboard" className="font-semibold">
-          EHR
-        </Link>
         <nav aria-label="Billing" className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
           {links.map((link) => {
             const active = pathname === link.href;
@@ -42,6 +39,6 @@ export default function BillingNav() {
           })}
         </nav>
       </div>
-    </header>
+    </div>
   );
 }

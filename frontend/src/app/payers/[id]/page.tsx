@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import PayerForm from "@/components/payer-form";
@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 import { Payer } from "@/types/payer";
 
 export default function PayerPage() {
+  const router = useRouter();
   const params = useParams<{ id: string }>();
 
   const [payer, setPayer] = useState<Payer | null>(null);
@@ -53,7 +54,7 @@ export default function PayerPage() {
     }
 
     setPayer(data);
-    setMessage("Payer updated successfully.");
+    router.push("/payers");
   }
 
   async function toggleStatus() {
@@ -93,14 +94,14 @@ export default function PayerPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href="/payers">
             ← Back to Payers
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {error && (

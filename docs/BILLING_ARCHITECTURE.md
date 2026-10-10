@@ -286,7 +286,13 @@ See [`ROUTE_SECURITY_MATRIX.md`](ROUTE_SECURITY_MATRIX.md) for every route.
   data route) until an administrator assigns a role.
 - **Role assignment is administrator-only**; the last active administrator cannot
   be removed. Users can read / edit only their own record unless administrator.
-- **First administrator**: run the local operator command (database access
+- **Seeded administrator**: migration `013_seed_full_access_admin.sql` creates
+  `admin@ehr.local` (username `ehr_admin`) with initial password
+  `EHR-Admin!2026-7Qx9` and every available role. This account can create users
+  and assign their roles from the Users pages. The migration stores a bcrypt
+  hash and can be rerun without duplicating users or roles or resetting an
+  existing password. Change the initial password before deploying the app.
+- **Additional administrator**: run the local operator command (database access
   required) — never an endpoint:
   ```
   cd backend

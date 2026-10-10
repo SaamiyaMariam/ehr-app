@@ -1,7 +1,7 @@
 // Command bootstrap-admin grants the Practice Administrator role to an
-// existing user. It is the only way to create the first administrator: role
-// assignment through the API is limited to administrators, so a fresh
-// installation needs an operator with database access to start the chain.
+// existing user. Migration 013 seeds a full-access administrator on fresh
+// installations; this tool can grant administrator access to another existing
+// account using database access. API role assignment is administrator-only.
 //
 // It is a local operator tool, not an endpoint. It never creates users or
 // passwords and never prints secrets.

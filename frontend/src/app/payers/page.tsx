@@ -43,13 +43,11 @@ export default function PayersPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="font-semibold">
-            EHR
-          </Link>
+    <main className="flex-1 bg-slate-100">
 
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-slate-900">Payers</h1>
           <Link
             href="/payers/new"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
@@ -57,12 +55,6 @@ export default function PayersPage() {
             Add Payer
           </Link>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Payers
-        </h1>
 
         {loading && (
           <p className="mt-6 text-slate-500">

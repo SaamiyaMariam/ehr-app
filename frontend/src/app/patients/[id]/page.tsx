@@ -79,12 +79,12 @@ export default function PatientPage() {
     }
 
     setPatient(data);
-    setMessage("Patient updated successfully.");
+    router.push("/patients");
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link
             href="/patients"
@@ -93,7 +93,7 @@ export default function PatientPage() {
             ← Back to Patients
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {loading && <p>Loading patient...</p>}

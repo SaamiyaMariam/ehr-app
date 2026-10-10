@@ -144,7 +144,7 @@ export default function BatchStatementsPage() {
   const combinedPath = `/api/billing/statements/combined-pdf?ids=${created.map((s) => s.id).join(",")}`;
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="flex-1 bg-slate-100">
       <BillingNav />
 
       <div className="mx-auto max-w-7xl space-y-6 px-6 py-8">

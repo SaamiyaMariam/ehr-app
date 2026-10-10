@@ -85,20 +85,14 @@ export default function BillingSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="font-semibold">
-            EHR
-          </Link>
-          <Link href="/settings/service-codes" className="text-sm font-medium underline">
+    <main className="flex-1 bg-slate-100">
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-slate-900">Billing Settings</h1>
+          <Link href="/settings/service-codes" className="text-sm font-medium text-slate-700 underline hover:text-slate-900">
             Service Codes
           </Link>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
-        <h1 className="text-2xl font-semibold text-slate-900">Billing Settings</h1>
 
         <ErrorBox message={error} />
         <SuccessBox message={message} />

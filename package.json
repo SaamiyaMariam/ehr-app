@@ -1,0 +1,7 @@
+{
+  "name": "ehr-app",
+  "private": true,
+  "scripts": {
+    "migration:run": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/migrate.ps1"
+  }
+}

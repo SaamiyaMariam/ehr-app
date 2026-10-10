@@ -69,7 +69,7 @@ export default function ChargePage() {
     }
 
     setCharge(data);
-    setMessage("Billable service updated successfully.");
+    router.push(`/patients/${params.id}/billing`);
   }
 
   async function voidCharge(reason: string) {
@@ -90,14 +90,14 @@ export default function ChargePage() {
   const status = charge ? chargeStatusLabels[charge.display_status] : null;
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href={`/patients/${params.id}/billing`} className="text-sm font-medium text-slate-600">
             ← Back to Billing
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl space-y-5 px-6 py-8">
         {loading && <p>Loading billable service...</p>}

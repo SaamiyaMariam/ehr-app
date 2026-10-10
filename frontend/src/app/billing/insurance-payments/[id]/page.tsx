@@ -117,7 +117,7 @@ export default function InsurancePaymentPage() {
   const pendingPaid = (addLines ?? []).reduce((sum, l) => sum + lineAmounts(l).paid, 0);
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="flex-1 bg-slate-100">
       <BillingNav />
 
       <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Patient } from "@/types/patient";
 import { apiFetch } from "@/lib/api";
+import TimeZonePicker from "@/components/time-zone-picker";
 
 type Props = {
   initialPatient: Patient;
@@ -86,8 +87,10 @@ export default function PatientForm({
 
         <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className={labelClass}>First name</label>
+            <label htmlFor="patient-first-name" className={labelClass}>First name *</label>
             <input
+              id="patient-first-name"
+              required
               className={inputClass}
               value={patient.first_name}
               onChange={(e) => update("first_name", e.target.value)}
@@ -347,13 +350,14 @@ export default function PatientForm({
           </div>
 
           <div>
-            <label className={labelClass}>Time zone</label>
-            <input
+            <label htmlFor="patient-time-zone" className={labelClass}>
+              Time zone
+            </label>
+            <TimeZonePicker
+              id="patient-time-zone"
               className={inputClass}
               value={patient.time_zone}
-              onChange={(e) =>
-                update("time_zone", e.target.value)
-              }
+              onChange={(timeZone) => update("time_zone", timeZone)}
             />
           </div>
         </div>

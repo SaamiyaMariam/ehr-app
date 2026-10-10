@@ -49,7 +49,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-900">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">
           Create account
@@ -61,13 +61,13 @@ export default function SignupPage() {
               name="first_name"
               placeholder="First name"
               required
-              className="rounded-lg border px-3 py-2"
+              className="min-w-0 rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
             />
             <input
               name="last_name"
               placeholder="Last name"
               required
-              className="rounded-lg border px-3 py-2"
+              className="min-w-0 rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
             />
           </div>
 
@@ -75,7 +75,7 @@ export default function SignupPage() {
             name="username"
             placeholder="Username"
             required
-            className="w-full rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
 
           <input
@@ -83,7 +83,7 @@ export default function SignupPage() {
             type="email"
             placeholder="Email"
             required
-            className="w-full rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
 
           <input
@@ -92,7 +92,7 @@ export default function SignupPage() {
             placeholder="Password"
             minLength={8}
             required
-            className="w-full rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -106,9 +106,9 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-600">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-slate-900">
+          <Link href="/login" className="font-medium text-blue-700 underline hover:text-blue-900">
             Login
           </Link>
         </p>

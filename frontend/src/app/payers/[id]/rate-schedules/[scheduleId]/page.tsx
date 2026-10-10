@@ -66,7 +66,7 @@ export default function RateSchedulePage() {
     }
 
     setSchedule(data);
-    setMessage("Rate schedule updated successfully.");
+    router.push(`/payers/${params.id}`);
   }
 
   async function toggleStatus() {
@@ -94,14 +94,14 @@ export default function RateSchedulePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href={`/payers/${params.id}`} className="text-sm font-medium text-slate-600">
             ← Back to Payer
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl space-y-5 px-6 py-8">
         {loading && <p>Loading rate schedule...</p>}

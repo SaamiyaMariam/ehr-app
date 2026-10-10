@@ -129,6 +129,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	cleanPatient(&patient)
 
+	if patient.FirstName == "" {
+		writeError(w, http.StatusBadRequest, "first name is required")
+		return
+	}
+
 	if patient.LastName == "" {
 		writeError(w, http.StatusBadRequest, "last name is required")
 		return
@@ -402,6 +407,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanPatient(&patient)
+
+	if patient.FirstName == "" {
+		writeError(w, http.StatusBadRequest, "first name is required")
+		return
+	}
 
 	if patient.LastName == "" {
 		writeError(w, http.StatusBadRequest, "last name is required")

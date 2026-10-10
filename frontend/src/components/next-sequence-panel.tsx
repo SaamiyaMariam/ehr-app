@@ -72,7 +72,7 @@ export default function NextSequencePanel({ claim, onMessage }: { claim: Claim; 
       }
 
       onMessage(`${label(data.sequence)} claim ${data.claim_number} created.`);
-      router.push(`/billing/claims/${data.id}`);
+      router.push("/billing/claims");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create the claim");
       setBusy(false);

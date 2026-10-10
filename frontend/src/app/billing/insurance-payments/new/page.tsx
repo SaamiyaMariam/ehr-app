@@ -89,7 +89,7 @@ export default function NewInsurancePaymentPage() {
         throw new Error(data.error || "Unable to post the insurance payment");
       }
 
-      router.push(`/billing/insurance-payments/${data.payment.id}?posted=1`);
+      router.push("/billing/insurance-payments");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to post the insurance payment");
       setBusy(false);
@@ -97,7 +97,7 @@ export default function NewInsurancePaymentPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
+    <main className="flex-1 bg-slate-100">
       <BillingNav />
 
       <form onSubmit={submit} className="mx-auto max-w-7xl space-y-6 px-6 py-8">

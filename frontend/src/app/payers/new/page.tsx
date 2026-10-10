@@ -26,18 +26,18 @@ export default function NewPayerPage() {
       throw new Error("Payer created but server returned no ID");
     }
 
-    router.push(`/payers/${data.id}`);
+    router.push("/payers");
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href="/payers">
             ← Back to Payers
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         <h1 className="text-2xl font-semibold">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import ClinicianBillingProfile from "@/components/clinician-billing-profile";
@@ -12,6 +12,7 @@ import { Role } from "@/types/role";
 import { User } from "@/types/user";
 
 export default function UserPage() {
+  const router = useRouter();
   const params = useParams<{ id: string }>();
 
   const [user, setUser] = useState<User | null>(null);
@@ -131,20 +132,20 @@ export default function UserPage() {
       setInitialRoles(saved);
     }
 
-    setMessage("User updated successfully.");
+    router.push("/users");
   }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
+      <main className="flex flex-1 items-center justify-center">
         Loading user...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link
             href="/users"
@@ -153,7 +154,7 @@ export default function UserPage() {
             ← Back to Users
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {error && (

@@ -96,7 +96,7 @@ export default function PriorAuthorizationPage() {
     }
 
     setAuthorization(data);
-    setMessage("Prior authorization updated successfully.");
+    router.push(policyPath);
   }
 
   async function toggleStatus() {
@@ -143,8 +143,8 @@ export default function PriorAuthorizationPage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link
             href={policyPath}
@@ -153,7 +153,7 @@ export default function PriorAuthorizationPage() {
             ← Back to Insurance Policy
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {loading && <p>Loading prior authorization...</p>}

@@ -97,14 +97,14 @@ export default function SuperbillsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="border-b bg-white">
+    <main className="flex-1 bg-slate-100">
+      <nav aria-label="Page navigation" className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-4">
           <Link href={`/patients/${params.id}/billing`} className="text-sm font-medium text-slate-600">
             ← Back to Billing
           </Link>
         </div>
-      </header>
+      </nav>
 
       <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
         <div>

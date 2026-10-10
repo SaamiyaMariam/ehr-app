@@ -44,11 +44,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-900">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Login</h1>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-600">
           Sign in to the EHR application.
         </p>
 
@@ -58,7 +58,7 @@ export default function LoginPage() {
             type="email"
             placeholder="Email"
             required
-            className="w-full rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
 
           <input
@@ -66,7 +66,7 @@ export default function LoginPage() {
             type="password"
             placeholder="Password"
             required
-            className="w-full rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
           />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -80,9 +80,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-600">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-medium text-slate-900">
+          <Link href="/signup" className="font-medium text-blue-700 underline hover:text-blue-900">
             Sign up
           </Link>
         </p>
